@@ -1,0 +1,39 @@
+[package]
+name = "signal-wasm-bridge"
+version = "0.1.0"
+edition = "2024"
+description = "WebAssembly bridge for the official libsignal-protocol"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wasm-bindgen = "0.2.108"
+js-sys = "0.3.85"
+wasm-bindgen-futures = "0.4.58"
+console_error_panic_hook = "0.1.7"
+rand = "0.8"
+
+[dependencies.libsignal-protocol]
+path = "../libsignal/rust/protocol" 
+default-features = false 
+
+[dependencies.libsignal-core]
+path = "../libsignal/rust/core" 
+default-features = false
+
+[dependencies.getrandom]
+version = "0.2"
+features = ["js"]
+
+[dependencies.getrandom_v3]
+package = "getrandom"
+version = "0.3"
+features = ["wasm_js"]
+
+[profile.release]
+opt-level = 'z'     
+lto = true          
+codegen-units = 1   
+panic = 'abort'
+
