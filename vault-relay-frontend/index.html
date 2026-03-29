@@ -1,13 +1,44 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>vault-relay-frontend</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<html lang="en" class="dark">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vault Relay</title>
+  <meta name="description"
+    content="The world's most advanced digital vault for human communication. Built on the Kinetic Fortress architecture with quantum-ready encryption." />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;900&family=Inter:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+    rel="stylesheet" />
+</head>
+
+<body>
+  <div id="root"></div>
+  <!--
+      Early Crypto Reference Storage (Proxy Detection Layer)
+      This MUST be the first <script> on the page. It saves pristine references
+      to all critical Web Crypto functions before any other code (React, npm
+      packages, browser extensions) can tamper with them. verifyCryptoIntegrity()
+      later uses strict equality (===) to detect Proxy wrappers.
+    -->
+  <script>
+    (function () {
+      'use strict';
+      if (typeof globalThis.crypto !== 'undefined' && globalThis.crypto.subtle) {
+        globalThis.__CRYPTO_REFS__ = Object.freeze({
+          getRandomValues: globalThis.crypto.getRandomValues,
+          encrypt: globalThis.crypto.subtle.encrypt,
+          decrypt: globalThis.crypto.subtle.decrypt,
+          generateKey: globalThis.crypto.subtle.generateKey,
+          importKey: globalThis.crypto.subtle.importKey,
+          _ts: Date.now()
+        });
+      }
+    })();
+  </script>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+
 </html>
