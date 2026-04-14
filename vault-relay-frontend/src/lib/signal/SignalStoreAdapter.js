@@ -1,5 +1,5 @@
 const DB_NAME = 'signal-storage';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 const STORES = {
     SESSIONS: 'sessions',
@@ -9,7 +9,8 @@ const STORES = {
     KYBER_PRE_KEYS: 'kyberPreKeys',
     SENDER_KEYS: 'senderKeys',
     CRYPTO_KEYS: 'cryptoKeys',  // Stores the non-extractable Master Wrapping Key
-    KYBER_USED_COMBOS: 'kyberUsedCombos'  // Replay detection for Kyber pre-key usage
+    KYBER_USED_COMBOS: 'kyberUsedCombos',  // Replay detection for Kyber pre-key usage
+    LOCAL_MESSAGES: 'localMessages' // WhatsApp-style sender history
 };
 
 const MWK_KEY = 'master_wrapping_key';
@@ -34,7 +35,13 @@ class SignalStoreAdapter {
                 const db = event.target.result;
                 Object.values(STORES).forEach(storeName => {
                     if (!db.objectStoreNames.contains(storeName)) {
-                        db.createObjectStore(storeName);
+                        if (storeName === STORES.LOCAL_MESSAGES) {
+                            // Require an index to rapidly fetch messages per conversation
+                            const store = db.createObjectStore(storeName, { keyPath: 'id' });
+                            store.createIndex('conversationId', 'conversationId', { unique: false });
+                        } else {
+                            db.createObjectStore(storeName);
+                        }
                     }
                 });
             };
@@ -306,6 +313,79 @@ class SignalStoreAdapter {
 
     async loadSenderKey(key) {
         return await this._encGet(STORES.SENDER_KEYS, key);
+    }
+
+    // ─── Local Messages ─────
+
+    /**
+     * Secures a full message object from the sender locally, encrypting only the sensitive text.
+     */
+    async saveLocalMessage(msgObj) {
+        if (!msgObj || !msgObj.id || !msgObj.conversationId) return;
+
+        const encoder = new TextEncoder();
+        const { iv, ct } = await this._encrypt(encoder.encode(msgObj.content));
+
+        const record = {
+            id: msgObj.id,
+            conversationId: msgObj.conversationId,
+            senderId: msgObj.senderId,
+            createdAt: msgObj.createdAt,
+            contentType: msgObj.contentType,
+            envelope: { iv, ct }
+        };
+
+        const db = await this.dbPromise;
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORES.LOCAL_MESSAGES, 'readwrite');
+            const store = tx.objectStore(STORES.LOCAL_MESSAGES);
+            const req = store.put(record);
+            req.onsuccess = () => resolve();
+            req.onerror = () => reject(req.error);
+        });
+    }
+
+    /**
+     * Retrieves and decrypts all locally sent messages for a specific conversation.
+     * Fast retrieval uses DB Indices rather than scanning all message history.
+     */
+    async getLocalMessages(conversationId) {
+        const db = await this.dbPromise;
+        const records = await new Promise((resolve, reject) => {
+            const tx = db.transaction(STORES.LOCAL_MESSAGES, 'readonly');
+            const store = tx.objectStore(STORES.LOCAL_MESSAGES);
+            const index = store.index('conversationId');
+            const req = index.getAll(conversationId);
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = () => reject(req.error);
+        });
+
+        const decoder = new TextDecoder();
+        const decryptedMessages = [];
+
+        for (const rec of records) {
+            try {
+                if (!rec.envelope) continue;
+                const plainBytes = await this._decrypt(rec.envelope);
+                const plaintext = decoder.decode(plainBytes);
+
+                decryptedMessages.push({
+                    id: rec.id,
+                    conversationId: rec.conversationId,
+                    senderId: rec.senderId,
+                    createdAt: rec.createdAt,
+                    contentType: rec.contentType,
+                    content: plaintext, // restored decrypted text!
+                    isDecrypted: true,
+                    isLocalCache: true
+                });
+            } catch (err) {
+                console.error(`[SignalStore] Failed to decrypt local message ${rec.id}`, err);
+            }
+        }
+
+        // Ensure chronological sorting
+        return decryptedMessages.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
     }
 }
 
