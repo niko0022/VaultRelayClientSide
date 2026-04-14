@@ -42,3 +42,7 @@ export async function refreshToken() {
 export async function logout() {
   return request('/auth/logout', { method: 'POST' });
 }
+
+export async function getMe() {
+  return request('/users/me', { method: 'GET' });
+}
