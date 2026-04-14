@@ -10,7 +10,11 @@ use libsignal_protocol::{
     session_cipher::{message_encrypt, message_decrypt},
     SignalProtocolError,
     kem,
+    SenderKeyDistributionMessage,
+    create_sender_key_distribution_message, process_sender_key_distribution_message,
+    group_encrypt, group_decrypt,
 };
+use uuid::Uuid;
 use rand::rngs::OsRng;
 use rand::{CryptoRng, Rng, RngCore, TryRngCore as _};
 use std::convert::TryFrom;
@@ -206,6 +210,124 @@ impl SessionCipher {
             &mut rng
         ).await.map_err(|e| signal_error_to_js("decrypt", &e))?;
         
+        Ok(plaintext)
+    }
+}
+
+// ─── Group Chat Initialization ───────────────────────────────────────
+
+#[wasm_bindgen]
+pub struct GroupSessionBuilder {
+    store: BridgeStore,
+}
+
+#[wasm_bindgen]
+impl GroupSessionBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> Self {
+        Self { store: BridgeStore }
+    }
+
+    /// Creates a SenderKeyDistributionMessage to be distributed to group members
+    #[wasm_bindgen(js_name = createSenderKeyDistributionMessage)]
+    pub async fn create_sender_key_distribution_message(
+        &mut self,
+        sender_address: &SignalProtocolAddress,
+        distribution_id: &str,
+    ) -> Result<JsValue, JsValue> {
+        let mut rng = get_rng();
+        let mut store = self.store.clone();
+        
+        let did = Uuid::parse_str(distribution_id)
+            .map_err(|e| JsValue::from_str(&format!("Invalid UUID formats for distributionId: {}", e)))?;
+
+        let skdm = create_sender_key_distribution_message(
+            &sender_address.inner,
+            did,
+            &mut store,
+            &mut rng
+        ).await.map_err(|e: SignalProtocolError| signal_error_to_js("create_sender_key_distribution_message", &e))?;
+        
+        let bytes = skdm.serialized();
+        
+        let array = js_sys::Uint8Array::from(bytes);
+        Ok(array.into())
+    }
+
+    /// Processes a received SenderKeyDistributionMessage from someone else
+    #[wasm_bindgen(js_name = processSenderKeyDistributionMessage)]
+    pub async fn process_sender_key_distribution_message(
+        &mut self,
+        sender_address: &SignalProtocolAddress,
+        message_bytes: &[u8],
+    ) -> Result<(), JsValue> {
+        let skdm = SenderKeyDistributionMessage::try_from(message_bytes)
+            .map_err(|e| signal_error_to_js("deserialize_skdm", &e))?;
+
+        let mut store = self.store.clone();
+
+        process_sender_key_distribution_message(
+            &sender_address.inner,
+            &skdm,
+            &mut store
+        ).await.map_err(|e: SignalProtocolError| signal_error_to_js("process_sender_key_distribution_message", &e))?;
+
+        Ok(())
+    }
+}
+
+#[wasm_bindgen]
+pub struct GroupCipher {
+    store: BridgeStore,
+    sender_address: ProtocolAddress,
+}
+
+#[wasm_bindgen]
+impl GroupCipher {
+    #[wasm_bindgen(constructor)]
+    pub fn new(address: &SignalProtocolAddress) -> Self {
+        Self {
+            store: BridgeStore,
+            sender_address: address.inner.clone(),
+        }
+    }
+
+    /// Encrypts a message for the group
+    pub async fn encrypt(&mut self, distribution_id: &str, message: &[u8]) -> Result<JsValue, JsValue> {
+        let mut rng = get_rng();
+        let mut store = self.store.clone();
+        
+        let did = Uuid::parse_str(distribution_id)
+            .map_err(|e| JsValue::from_str(&format!("Invalid UUID: {}", e)))?;
+
+        let skm = group_encrypt(
+            &mut store,
+            &self.sender_address,
+            did,
+            message,
+            &mut rng
+        ).await.map_err(|e: SignalProtocolError| signal_error_to_js("group_encrypt", &e))?;
+
+        let bytes = skm.serialized();
+        
+        let result = js_sys::Object::new();
+        // 7 corresponds to SenderKeyMessage in deserialize_ciphertext_typed
+        let array = js_sys::Uint8Array::from(bytes);
+        js_sys::Reflect::set(&result, &"type".into(), &JsValue::from(7u8))?;
+        js_sys::Reflect::set(&result, &"body".into(), &array.into())?;
+        Ok(result.into())
+    }
+
+    /// Decrypts a message from the group
+    pub async fn decrypt(&mut self, ciphertext: &[u8]) -> Result<Vec<u8>, JsValue> {
+        let mut store = self.store.clone();
+
+        let plaintext = group_decrypt(
+            ciphertext,
+            &mut store,
+            &self.sender_address
+        ).await.map_err(|e: SignalProtocolError| signal_error_to_js("group_decrypt", &e))?;
+
         Ok(plaintext)
     }
 }
