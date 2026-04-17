@@ -150,6 +150,10 @@ class ChatService {
         });
     }
 
+    async getPreKeyCount() {
+        return await this._fetch('/keys/count');
+    }
+
     // --- Friends API ---
 
     async listFriends() {
