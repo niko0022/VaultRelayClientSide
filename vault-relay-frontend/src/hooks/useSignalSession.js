@@ -1,11 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import init, {
-    SessionCipher, SessionBuilder, SignalProtocolAddress, initIdentity,
-    generatePreKeys, generateSignedPreKey, generateKyberPreKey,
-    extractIdentityPublicKey
+    SessionCipher, SessionBuilder, SignalProtocolAddress, initIdentity
 } from 'signal-wasm-bridge';
-import { signalStoreAdapter, initSignalStorage } from '../lib/signal/SignalStoreAdapter';
-import { verifyCryptoIntegrity } from '../lib/signal/verifyCryptoIntegrity';
+import { signalStoreAdapter } from '../lib/signal/SignalStoreAdapter';
+import { ensureWasmReady } from '../lib/signal/initWasm';
 import { uint8ArrayToBase64, base64ToUint8Array, decodeServerBundle } from '../lib/signal/signalUtils';
 
 
@@ -26,19 +24,10 @@ export function useSignalSession(remoteName, remoteDeviceId) {
 
         const loadWasm = async () => {
             try {
-                // Verify crypto integrity BEFORE any WASM or crypto operations
-                await verifyCryptoIntegrity();
-
-                // Wire window.signalStorage BEFORE WASM init
-                initSignalStorage();
-
-                // Initialize WASM module
-                await init();
+                // Single shared init — passes our own init to guarantee same module instance
+                await ensureWasmReady(init, initIdentity);
                 if (!active) return;
                 wasmReady.current = true;
-
-                // Ensure local identity exists (idempotent — generates only on first run)
-                await initIdentity();
 
                 // Create the protocol address
                 const address = new SignalProtocolAddress(remoteName, parseInt(remoteDeviceId));
@@ -155,126 +144,7 @@ export function useSignalSession(remoteName, remoteDeviceId) {
         setHasSession(false);
     }, [remoteName, remoteDeviceId]);
 
-    /**
-     * Generates all required pre-keys and saves private records to IndexedDB.
-     * Returns the public data your backend server needs to let others message you.
-     *
-     * @param {Object} options
-     *   - preKeyStartId: number   (default 1) — starting ID for the batch of One-Time PreKeys
-     *   - preKeyCount: number     (default 100) — how many One-Time PreKeys to generate
-     *   - signedPreKeyId: number  (default 1) — ID for the Signed PreKey
-     *   - kyberPreKeyId: number   (default 1) — ID for the Kyber PreKey
-     *
-     * @returns {Object} Bundle to upload to your server:
-     *   - identityKey: Uint8Array          (your public identity key)
-     *   - registrationId: number
-     *   - oneTimePreKeys: [{ keyId, publicKey }]  (public halves only)
-     *   - signedPreKey: { keyId, publicKey, signature }
-     *   - kyberPreKey: { keyId, publicKey, signature }
-     */
-    const generatePreKeyBundle = useCallback(async (options = {}) => {
-        if (!wasmReady.current) {
-            throw new Error("WASM not initialized yet");
-        }
-
-        const {
-            preKeyStartId = 1,
-            preKeyCount = 100,
-            signedPreKeyId = 1,
-            kyberPreKeyId = 1
-        } = options;
-
-        // Fetch identity (must already exist via initIdentity)
-        const identityKeyPairBytes = await signalStoreAdapter.getIdentityKeyPair();
-        const registrationId = await signalStoreAdapter.getLocalRegistrationId();
-
-        if (!identityKeyPairBytes || registrationId == null) {
-            throw new Error("Identity not initialized — initIdentity must run first");
-        }
-
-        // ── 1. Generate One-Time PreKeys ──────────────────────────────
-        const preKeys = generatePreKeys(preKeyStartId, preKeyCount);
-        //   Each entry: { id: number, record: Uint8Array, publicKey: Uint8Array }
-
-        // Save private records to IndexedDB, collect PUBLIC keys only for server
-        const oneTimePreKeysForServer = [];
-        for (const pk of preKeys) {
-            await signalStoreAdapter.savePreKey(pk.id, pk.record);
-            // Send ONLY the public key to the server — converted to Base64
-            oneTimePreKeysForServer.push({ 
-                keyId: pk.id, 
-                publicKey: uint8ArrayToBase64(pk.publicKey) 
-            });
-        }
-
-        // ── 2. Generate Signed PreKey ─────────────────────────────────
-        const spk = generateSignedPreKey(identityKeyPairBytes, signedPreKeyId);
-        //   { id, record, publicKey, signature }
-        await signalStoreAdapter.saveSignedPreKey(spk.id, spk.record);
-
-        // ── 3. Generate Kyber PreKey (Post-Quantum) ──────────────────
-        const kpk = generateKyberPreKey(identityKeyPairBytes, kyberPreKeyId);
-        //   { id, record, publicKey, signature }
-        await signalStoreAdapter.saveKyberPreKey(kpk.id, kpk.record);
-
-        // ── Return the public data for your backend server ───────────
-        // Extract ONLY the public key — NEVER send the full pair to the server
-        const identityPublicKey = extractIdentityPublicKey(identityKeyPairBytes);
-
-        return {
-            registrationId,
-            identityKey: uint8ArrayToBase64(identityPublicKey),
-            oneTimePreKeys: oneTimePreKeysForServer,
-            signedPreKey: {
-                keyId: spk.id,
-                publicKey: uint8ArrayToBase64(spk.publicKey),
-                signature: uint8ArrayToBase64(spk.signature)
-            },
-            kyberPreKey: {
-                keyId: kpk.id,
-                publicKey: uint8ArrayToBase64(kpk.publicKey),
-                signature: uint8ArrayToBase64(kpk.signature)
-            }
-        };
-    }, []);
-
-    /**
-     * Generates a fresh batch of One-Time PreKeys if the server count is low.
-     * Returns null if no replenishment is needed, or the new keys for upload.
-     *
-     * @param {Object} params
-     *   - currentCount: number   — how many unused PreKeys the server currently holds
-     *   - nextStartId: number    — the next available PreKey ID (server should track this)
-     *   - threshold: number      (default 25) — replenish when count drops below this
-     *   - batchSize: number      (default 100) — how many new keys to generate
-     *
-     * @returns {Array|null} Array of new PreKey objects to upload, or null if not needed
-     */
-    const replenishPreKeys = useCallback(async ({ currentCount, nextStartId, threshold = 25, batchSize = 100 }) => {
-        if (!wasmReady.current) {
-            throw new Error("WASM not initialized yet");
-        }
-
-        if (currentCount >= threshold) {
-            return null; // Server still has plenty of keys
-        }
-
-        // Generate a fresh batch
-        const preKeys = generatePreKeys(nextStartId, batchSize);
-
-        // Save private records to IndexedDB, collect PUBLIC keys only for server
-        const oneTimePreKeysForServer = [];
-        for (const pk of preKeys) {
-            await signalStoreAdapter.savePreKey(pk.id, pk.record);
-            oneTimePreKeysForServer.push({ 
-                keyId: pk.id, 
-                publicKey: uint8ArrayToBase64(pk.publicKey) 
-            });
-        }
-
-        // Return ONLY public keys for the caller to upload to the server
-        return oneTimePreKeysForServer;
-    }, []);
+    // ─── Active Messaging Logic ──────────────────────────────────────
 
     const encryptMessage = useCallback(async (text) => {
         if (!cipherRef.current) throw new Error("No session — call establishSession first");
@@ -329,8 +199,6 @@ export function useSignalSession(remoteName, remoteDeviceId) {
         isReady,       // true once WASM is loaded (but session may not exist yet)
         hasSession,    // true once a session is established or was found in storage
         error,
-        generatePreKeyBundle,
-        replenishPreKeys,
         establishSession,
         resetSession,
         encryptMessage,
