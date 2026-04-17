@@ -3,8 +3,8 @@ import init, {
     SessionCipher, SessionBuilder, SignalProtocolAddress, initIdentity,
     GroupSessionBuilder, GroupCipher
 } from 'signal-wasm-bridge';
-import { signalStoreAdapter, initSignalStorage } from '../lib/signal/SignalStoreAdapter';
-import { verifyCryptoIntegrity } from '../lib/signal/verifyCryptoIntegrity';
+import { signalStoreAdapter } from '../lib/signal/SignalStoreAdapter';
+import { ensureWasmReady } from '../lib/signal/initWasm';
 import { uint8ArrayToBase64, base64ToUint8Array, decodeServerBundle } from '../lib/signal/signalUtils';
 
 export function useGroupSignalSession(currentUserId) {
@@ -20,12 +20,10 @@ export function useGroupSignalSession(currentUserId) {
         let active = true;
         const loadWasm = async () => {
             try {
-                await verifyCryptoIntegrity();
-                initSignalStorage();
-                await init();
+                // Single shared init — passes our own init to guarantee same module instance
+                await ensureWasmReady(init, initIdentity);
                 if (!active) return;
                 wasmReady.current = true;
-                await initIdentity();
                 setIsReady(true);
             } catch (e) {
                 console.error("Failed to init WASM:", e);
@@ -45,7 +43,7 @@ export function useGroupSignalSession(currentUserId) {
         };
     }, []);
 
-    // ─── 1. Load or establish 1-to-1 relationships for group members ──────
+    // Load or establish 1-to-1 relationships for group members 
 
     // Call this with the pre-key bundles from `/keys/batch` 
     // It skips participants we already have sessions for.
@@ -94,7 +92,7 @@ export function useGroupSignalSession(currentUserId) {
         }
     }, []);
 
-    // ─── 2. Key Distribution ──────────────────────────────────────────
+    // Key Distribution 
 
     // Creates the SenderKeyDistributionMessage, encrypts it individually for all members,
     // and returns the { [userId]: { type, body } } map for backend storage Option A.
@@ -197,7 +195,7 @@ export function useGroupSignalSession(currentUserId) {
         }
     }, [currentUserId, establishGroupSessions]);
 
-    // ─── 3. Group Messaging ───────────────────────────────────────────
+    // Group Messaging 
 
     // Helper to cache group ciphers (so we don't recreate them every message)
     const getGroupCipher = (senderId, groupId) => {
