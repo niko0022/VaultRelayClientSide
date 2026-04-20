@@ -29,6 +29,11 @@ export function useSignalSession(remoteName, remoteDeviceId) {
                 if (!active) return;
                 wasmReady.current = true;
 
+                if (!remoteName) {
+                    // Chat window is open, but no specific user is selected yet. Skip session loading.
+                    return;
+                }
+
                 // Create the protocol address
                 const address = new SignalProtocolAddress(remoteName, parseInt(remoteDeviceId));
                 addressRef.current = address;
@@ -158,7 +163,7 @@ export function useSignalSession(remoteName, remoteDeviceId) {
         // Convert body to Base64 so it survives JSON serialization over the socket
         return {
             type: result.type,
-            body: uint8ArrayToBase64(result.body instanceof Uint8Array ? result.body : new Uint8Array(result.body))
+            body: uint8ArrayToBase64(result.body)
         };
     }, []);
 
@@ -176,7 +181,7 @@ export function useSignalSession(remoteName, remoteDeviceId) {
         // Decode Base64 body back to Uint8Array for the WASM decryptor
         const bodyBytes = typeof body === 'string'
             ? base64ToUint8Array(body)
-            : (body instanceof Uint8Array ? body : new Uint8Array(Object.values(body)));
+            : body; // Already Uint8Array from WASM
 
         try {
             const plaintextBytes = await cipherRef.current.decrypt(msgType, bodyBytes);
