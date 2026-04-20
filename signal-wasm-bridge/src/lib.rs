@@ -180,7 +180,8 @@ impl SessionCipher {
         
         let result = js_sys::Object::new();
         js_sys::Reflect::set(&result, &"type".into(), &JsValue::from(ciphertext.message_type() as u8))?;
-        js_sys::Reflect::set(&result, &"body".into(), &serde_wasm_bindgen::to_value(ciphertext.serialize())?)?;
+        let body = js_sys::Uint8Array::from(ciphertext.serialize());
+        js_sys::Reflect::set(&result, &"body".into(), &body)?;
         Ok(result.into())
     }
 
@@ -363,7 +364,7 @@ pub async fn init_identity() -> Result<JsValue, JsValue> {
 
     // Return the generated values
     let result = js_sys::Object::new();
-    js_sys::Reflect::set(&result, &"identityKeyPair".into(), &serde_wasm_bindgen::to_value(&pair_bytes)?)?;
+    js_sys::Reflect::set(&result, &"identityKeyPair".into(), &js_sys::Uint8Array::from(&pair_bytes[..]))?;
     js_sys::Reflect::set(&result, &"registrationId".into(), &JsValue::from(reg_id))?;
     Ok(result.into())
 }
@@ -377,7 +378,7 @@ pub fn generate_identity_key_pair() -> Result<JsValue, JsValue> {
     let mut rng = get_rng();
     let key_pair = IdentityKeyPair::generate(&mut rng);
     let bytes = key_pair.serialize();
-    Ok(serde_wasm_bindgen::to_value(&bytes)?)
+    Ok(js_sys::Uint8Array::from(&bytes[..]).into())
 }
 
 /// Extracts only the public identity key from a serialized IdentityKeyPair.
@@ -387,7 +388,7 @@ pub fn extract_identity_public_key(identity_key_pair_bytes: &[u8]) -> Result<JsV
     let key_pair = IdentityKeyPair::try_from(identity_key_pair_bytes)
         .map_err(|e| JsValue::from_str(&format!("Invalid identity key pair: {}", e)))?;
     let public_bytes = key_pair.public_key().serialize();
-    Ok(serde_wasm_bindgen::to_value(&public_bytes)?)
+    Ok(js_sys::Uint8Array::from(public_bytes.as_ref()).into())
 }
 
 /// Generates a registration ID (14-bit, per Signal spec).
@@ -413,8 +414,8 @@ pub fn generate_pre_keys(start_id: u32, count: u32) -> Result<JsValue, JsValue> 
 
         let entry = js_sys::Object::new();
         js_sys::Reflect::set(&entry, &"id".into(), &JsValue::from(start_id + i))?;
-        js_sys::Reflect::set(&entry, &"record".into(), &serde_wasm_bindgen::to_value(&serialized)?)?;
-        js_sys::Reflect::set(&entry, &"publicKey".into(), &serde_wasm_bindgen::to_value(&key_pair.public_key.serialize().to_vec())?)?;
+        js_sys::Reflect::set(&entry, &"record".into(), &js_sys::Uint8Array::from(&serialized[..]))?;
+        js_sys::Reflect::set(&entry, &"publicKey".into(), &js_sys::Uint8Array::from(key_pair.public_key.serialize().as_ref()))?;
         result.push(&entry);
     }
 
@@ -445,9 +446,9 @@ pub fn generate_signed_pre_key(identity_key_pair_bytes: &[u8], signed_pre_key_id
 
     let result = js_sys::Object::new();
     js_sys::Reflect::set(&result, &"id".into(), &JsValue::from(signed_pre_key_id))?;
-    js_sys::Reflect::set(&result, &"record".into(), &serde_wasm_bindgen::to_value(&serialized)?)?;
-    js_sys::Reflect::set(&result, &"publicKey".into(), &serde_wasm_bindgen::to_value(&key_pair.public_key.serialize().to_vec())?)?;
-    js_sys::Reflect::set(&result, &"signature".into(), &serde_wasm_bindgen::to_value(&signature)?)?;
+    js_sys::Reflect::set(&result, &"record".into(), &js_sys::Uint8Array::from(&serialized[..]))?;
+    js_sys::Reflect::set(&result, &"publicKey".into(), &js_sys::Uint8Array::from(key_pair.public_key.serialize().as_ref()))?;
+    js_sys::Reflect::set(&result, &"signature".into(), &js_sys::Uint8Array::from(&signature[..]))?;
     Ok(result.into())
 }
 
@@ -475,9 +476,9 @@ pub fn generate_kyber_pre_key(identity_key_pair_bytes: &[u8], kyber_pre_key_id: 
 
     let result = js_sys::Object::new();
     js_sys::Reflect::set(&result, &"id".into(), &JsValue::from(kyber_pre_key_id))?;
-    js_sys::Reflect::set(&result, &"record".into(), &serde_wasm_bindgen::to_value(&serialized)?)?;
-    js_sys::Reflect::set(&result, &"publicKey".into(), &serde_wasm_bindgen::to_value(&kyber_key_pair.public_key.serialize().to_vec())?)?;
-    js_sys::Reflect::set(&result, &"signature".into(), &serde_wasm_bindgen::to_value(&signature)?)?;
+    js_sys::Reflect::set(&result, &"record".into(), &js_sys::Uint8Array::from(&serialized[..]))?;
+    js_sys::Reflect::set(&result, &"publicKey".into(), &js_sys::Uint8Array::from(kyber_key_pair.public_key.serialize().as_ref()))?;
+    js_sys::Reflect::set(&result, &"signature".into(), &js_sys::Uint8Array::from(&signature[..]))?;
     Ok(result.into())
 }
 
