@@ -1,15 +1,51 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+const API_BASE_URL = '/api';
 
 async function request(endpoint, options = {}) {
-  const res = await fetch(`${API_BASE_URL}${endpoint}`, {
-    headers: { 'Content-Type': 'application/json' },
+  const config = {
+    headers: {
+      'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': 'true',
+    },
     credentials: 'include',
     ...options,
-  });
+  };
+  let res = await fetch(`${API_BASE_URL}${endpoint}`, config);
+
+  // --- Interceptor: Silent Token Refresh ---
+  // If we get a 401, and we aren't ALREADY trying to refresh the token, let's try to refresh it
+  if (res.status === 401 && endpoint !== '/auth/refresh' && endpoint !== '/auth/login' && endpoint !== '/auth/register') {
+    try {
+      // Call the refresh endpoint
+      const refreshRes = await fetch(`${API_BASE_URL}/auth/refresh`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
+        credentials: 'include',
+      });
+      
+      if (refreshRes.ok) {
+        // Refresh succeeded! Retry the original request exactly once
+        res = await fetch(`${API_BASE_URL}${endpoint}`, config);
+      }
+    } catch (err) {
+      console.warn('[AuthService] Automatic refresh failed', err);
+    }
+  }
 
   if (res.status === 204) return null;
 
-  const data = await res.json();
+  // Some error responses (e.g. Passport.js 401) return plain text, not JSON
+  const text = await res.text();
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    // Response is plain text like "Unauthorized"
+    if (!res.ok) throw new Error(text || `Request failed with status ${res.status}`);
+    return text;
+  }
 
   if (!res.ok) {
     const message =
