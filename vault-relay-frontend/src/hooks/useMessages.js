@@ -8,8 +8,8 @@ import { signalStoreAdapter } from '../lib/signal/SignalStoreAdapter';
 // Helper to deduce remote user in a 1-to-1 chat
 function getDirectRemoteUserId(conversation, currentUserId) {
     if (!conversation || conversation.type !== 'DIRECT') return null;
-    return conversation.participantAId === currentUserId 
-        ? conversation.participantBId 
+    return conversation.participantAId === currentUserId
+        ? conversation.participantBId
         : conversation.participantAId;
 }
 
@@ -33,7 +33,7 @@ export function useMessages(conversation, currentUserId) {
 
     // -- Group Session API --
     const {
-        isReady: groupReady, establishGroupSessions, generateGroupDistributionMap, 
+        isReady: groupReady, establishGroupSessions, generateGroupDistributionMap,
         processGroupDistribution, encryptGroupMessage, decryptGroupMessage
     } = useGroupSignalSession(currentUserId);
 
@@ -52,7 +52,7 @@ export function useMessages(conversation, currentUserId) {
                     const participantIds = (conversation.participants || [])
                         .map(p => p.userId)
                         .filter(id => id !== currentUserId);
-                    
+
                     if (participantIds.length > 0) {
                         const response = await chatService.getPreKeyBundles(participantIds);
                         const bundles = response.bundles || response;
@@ -78,7 +78,7 @@ export function useMessages(conversation, currentUserId) {
 
         const processed = [];
         for (const msg of rawMessages) {
-            
+
             // Handle Key Distribution Messages
             if (msg.contentType === 'SIGNAL_KEY_DISTRIBUTION') {
                 if (isGroup && msg.senderId !== currentUserId) {
@@ -92,7 +92,7 @@ export function useMessages(conversation, currentUserId) {
                     }
                 }
                 // Key distribution is a system message — don't show it in the UI list
-                continue; 
+                continue;
             }
 
             if (msg.contentType === 'SIGNAL_ENCRYPTED') {
@@ -139,8 +139,10 @@ export function useMessages(conversation, currentUserId) {
             const localMap = new Map(localMsgs.map(m => [m.id, m]));
 
             const finalProcessed = processedMessages.map(m => {
-                if (m.senderId === currentUserId && m.contentType === 'SIGNAL_ENCRYPTED') {
-                    if (localMap.has(m.id)) return localMap.get(m.id);
+                // Swap in local plaintext copy for any message we sent,
+                // regardless of what contentType the server stored it as
+                if (m.senderId === currentUserId && localMap.has(m.id)) {
+                    return localMap.get(m.id);
                 }
                 return m;
             });
@@ -180,12 +182,12 @@ export function useMessages(conversation, currentUserId) {
                 if (!distributedRef.current) {
                     const participantIds = (conversation.participants || []).map(p => p.userId);
                     const mapBlob = await generateGroupDistributionMap(conversationId, participantIds);
-                    
+
                     socketClient.emit('send_message', {
                         conversationId,
                         content: JSON.stringify(mapBlob),
                         contentType: 'SIGNAL_KEY_DISTRIBUTION'
-                    }, () => {});
+                    }, () => { });
 
                     distributedRef.current = true;
                 }
@@ -215,7 +217,7 @@ export function useMessages(conversation, currentUserId) {
                     setError(ack.error);
                     setMessages(prev => prev.filter(m => m.id !== tempId));
                 } else if (ack && ack.success) {
-                    const finalizedMsg = { ...ack.message, content: plaintext };
+                    const finalizedMsg = { ...ack.message, content: plaintext, contentType: 'TEXT' };
                     setMessages(prev => prev.map(m => m.id === tempId ? finalizedMsg : m));
                     try {
                         await signalStoreAdapter.saveLocalMessage(finalizedMsg);
@@ -242,11 +244,11 @@ export function useMessages(conversation, currentUserId) {
 
     useEffect(() => {
         if (!conversationId) { setMessages([]); return; }
-        
+
         // Reset distributed mark on conversation change
         distributedRef.current = false;
 
-        socketClient.emit('join_conversation', { conversationId }, () => {});
+        socketClient.emit('join_conversation', { conversationId }, () => { });
 
         const handleIncomingMessage = async ({ message }) => {
             if (message.conversationId !== conversationId) return;
@@ -258,7 +260,7 @@ export function useMessages(conversation, currentUserId) {
                     if (prev.find(m => m.id === message.id)) return prev;
                     return [...prev, processed];
                 });
-                chatService.markRead(conversationId, message.id).catch(()=>{});
+                chatService.markRead(conversationId, message.id).catch(() => { });
             }
         };
 
