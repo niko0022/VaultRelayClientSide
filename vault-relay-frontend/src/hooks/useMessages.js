@@ -41,6 +41,10 @@ export function useMessages(conversation, currentUserId) {
 
     // Track whether we've fired off our SenderKey distribution
     const distributedRef = useRef(false);
+    // Track message IDs already decrypted this session to avoid re-decrypting
+    // the same ciphertext (Signal ratchet advances on decrypt — doing it twice
+    // throws "message with old counter")
+    const decryptedCacheRef = useRef(new Map()); // id -> plaintext
 
     // --- Session Setup ---
     useEffect(() => {
@@ -73,7 +77,7 @@ export function useMessages(conversation, currentUserId) {
     }, [conversation, isReady, currentUserId, remoteDirectUserId, directHasSession, isGroup, establishGroupSessions, directEstablish]);
 
     // --- Decryption Routing ---
-    const processMessages = useCallback(async (rawMessages) => {
+    const processMessages = useCallback(async (rawMessages, localMap = new Map()) => {
         if (!isReady) return rawMessages;
 
         const processed = [];
@@ -96,10 +100,21 @@ export function useMessages(conversation, currentUserId) {
             }
 
             if (msg.contentType === 'SIGNAL_ENCRYPTED') {
+                // If it is in local IndexedDB history (we sent it OR we already received and decrypted it in a past session)
+                if (localMap.has(msg.id)) {
+                    processed.push(localMap.get(msg.id));
+                    continue;
+                }
+
                 if (msg.senderId === currentUserId) {
-                    // Hot-swapped via LocalCache interceptor in loadMessages
+                    // If not in local cache (should be rare), just mark as sent
                     processed.push({ ...msg, content: 'Message Sent' });
                 } else {
+                    // If we already decrypted this message in THIS session (in RAM cache)
+                    if (decryptedCacheRef.current.has(msg.id)) {
+                        processed.push({ ...msg, content: decryptedCacheRef.current.get(msg.id), isDecrypted: true });
+                        continue;
+                    }
                     try {
                         let plaintext = 'Error decrypting message';
                         if (isGroup) {
@@ -109,7 +124,15 @@ export function useMessages(conversation, currentUserId) {
                         } else {
                             plaintext = 'Encrypted Message (Initializing...)';
                         }
-                        processed.push({ ...msg, content: plaintext, isDecrypted: true });
+                        decryptedCacheRef.current.set(msg.id, plaintext);
+                        const finalizedMsg = { ...msg, content: plaintext, isDecrypted: true, contentType: 'TEXT' };
+                        processed.push(finalizedMsg);
+
+                        // Save the freshly decrypted message to IndexedDB so next time we load from server
+                        // we read it from local cache instead of double-decrypting and breaking the ratchet.
+                        signalStoreAdapter.saveLocalMessage(finalizedMsg).catch(e => {
+                            console.error('Failed to cache decrypted message', e);
+                        });
                     } catch (err) {
                         console.error("Failed to decrypt message", msg.id, err);
                         processed.push({ ...msg, content: 'Error decrypting message', isDecrypted: false });
@@ -132,25 +155,18 @@ export function useMessages(conversation, currentUserId) {
         setError(null);
         try {
             const data = await chatService.getMessages(conversationId, { limit: 50, cursor });
-            const processedMessages = await processMessages(data.messages);
-
-            // Merge Local Sent Messages 
+            
+            // Fetch local plaintext cache BEFORE processing server messages
+            // This prevents double-decrypting received messages we've previously decrypted
             const localMsgs = await signalStoreAdapter.getLocalMessages(conversationId);
             const localMap = new Map(localMsgs.map(m => [m.id, m]));
 
-            const finalProcessed = processedMessages.map(m => {
-                // Swap in local plaintext copy for any message we sent,
-                // regardless of what contentType the server stored it as
-                if (m.senderId === currentUserId && localMap.has(m.id)) {
-                    return localMap.get(m.id);
-                }
-                return m;
-            });
+            const processedMessages = await processMessages(data.messages, localMap);
 
             if (cursor) {
-                setMessages(prev => [...finalProcessed, ...prev]);
+                setMessages(prev => [...processedMessages, ...prev]);
             } else {
-                setMessages(finalProcessed);
+                setMessages(processedMessages);
             }
             setNextCursor(data.nextCursor);
             setHasOlder(data.hasNext);
@@ -245,8 +261,9 @@ export function useMessages(conversation, currentUserId) {
     useEffect(() => {
         if (!conversationId) { setMessages([]); return; }
 
-        // Reset distributed mark on conversation change
+        // Reset per-conversation state on conversation change
         distributedRef.current = false;
+        decryptedCacheRef.current = new Map();
 
         socketClient.emit('join_conversation', { conversationId }, () => { });
 
