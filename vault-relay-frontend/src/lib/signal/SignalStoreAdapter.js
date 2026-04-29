@@ -317,6 +317,10 @@ class SignalStoreAdapter {
 
     // ─── Local Messages ─────
 
+    async removeSession(address) {
+        await this._rawDelete(STORES.SESSIONS, address);
+    }
+
     /**
      * Secures a full message object from the sender locally, encrypting only the sensitive text.
      */
@@ -386,6 +390,33 @@ class SignalStoreAdapter {
 
         // Ensure chronological sorting
         return decryptedMessages.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    }
+
+    /**
+     * Completely wipes all local messages for a given conversation.
+     * Used when deleting a conversation to ensure it leaves no trace on disk.
+     */
+    async clearLocalMessages(conversationId) {
+        const db = await this.dbPromise;
+        const records = await new Promise((resolve, reject) => {
+            const tx = db.transaction(STORES.LOCAL_MESSAGES, 'readonly');
+            const store = tx.objectStore(STORES.LOCAL_MESSAGES);
+            const index = store.index('conversationId');
+            const req = index.getAll(conversationId);
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = () => reject(req.error);
+        });
+
+        if (records.length === 0) return;
+
+        // Now delete each record by ID
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORES.LOCAL_MESSAGES, 'readwrite');
+            const store = tx.objectStore(STORES.LOCAL_MESSAGES);
+            records.forEach(rec => store.delete(rec.id));
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+        });
     }
 }
 
