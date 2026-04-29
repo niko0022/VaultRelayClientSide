@@ -42,9 +42,7 @@ export function useMessages(conversation, currentUserId) {
     // Track whether we've fired off our SenderKey distribution
     const distributedRef = useRef(false);
     // Track message IDs already decrypted this session to avoid re-decrypting
-    // the same ciphertext (Signal ratchet advances on decrypt — doing it twice
-    // throws "message with old counter")
-    const decryptedCacheRef = useRef(new Map()); // id -> plaintext
+    const decryptedCacheRef = useRef(new Map());
 
     // --- Session Setup ---
     useEffect(() => {
@@ -155,7 +153,7 @@ export function useMessages(conversation, currentUserId) {
         setError(null);
         try {
             const data = await chatService.getMessages(conversationId, { limit: 50, cursor });
-            
+
             // Fetch local plaintext cache BEFORE processing server messages
             // This prevents double-decrypting received messages we've previously decrypted
             const localMsgs = await signalStoreAdapter.getLocalMessages(conversationId);
