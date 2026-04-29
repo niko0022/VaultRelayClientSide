@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { chatService } from '../services/chatService';
 import { socketClient } from '../services/socketClient';
+import { signalStoreAdapter } from '../lib/signal/SignalStoreAdapter';
 
 export function useConversations() {
     const [conversations, setConversations] = useState([]);
@@ -94,7 +95,17 @@ export function useConversations() {
                     }
                 }
             }),
-            socketClient.on('conversation.deleted', ({ conversationId }) => {
+            socketClient.on('conversation.deleted', ({ conversationId, participants }) => {
+                // Instantly wipe E2EE data locally
+                signalStoreAdapter.clearLocalMessages(conversationId).catch(err => console.error('Failed to wipe local messages', err));
+                if (participants && Array.isArray(participants)) {
+                    participants.forEach(p => {
+                        // Signal protocol addresses usually stringify to 'userId.deviceId'
+                        const addressKey = `${p.userId}.1`;
+                        signalStoreAdapter.removeSession(addressKey).catch(err => console.error('Failed to sever signal session', err));
+                    });
+                }
+
                 setConversations(prev => prev.filter(c => c.id !== conversationId));
                 setSelectedConversationId(current => current === conversationId ? null : current);
             })
