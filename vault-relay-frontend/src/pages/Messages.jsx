@@ -4,6 +4,8 @@ import SideNavBar from '../components/SideNavBar';
 import { useAuth } from '../contexts/AuthContext';
 import { useConversations } from '../hooks/useConversations';
 import { useMessages } from '../hooks/useMessages';
+import { chatService } from '../services/chatService';
+import CreateGroupModal from '../components/CreateGroupModal';
 
 // Helper to format timestamps
 function formatTime(dateString) {
@@ -70,6 +72,8 @@ export default function Messages() {
 
     // Composer State
     const [composerText, setComposerText] = useState('');
+    const [menuOpen, setMenuOpen] = useState(false);
+    const [showGroupModal, setShowGroupModal] = useState(false);
     const typingTimeoutRef = useRef(null);
     const isTypingRef = useRef(false);
     const messagesEndRef = useRef(null);
@@ -127,7 +131,16 @@ export default function Messages() {
                 {/* Secondary Pane: Conversation List */}
                 <section className="w-80 h-full bg-surface-container-low flex flex-col kinetic-grid border-r border-outline-variant/10">
                     <div className="p-6">
-                        <h2 className="font-headline text-xl font-bold text-on-surface mb-4">Active Chats</h2>
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="font-headline text-xl font-bold text-on-surface">Active Chats</h2>
+                            <button 
+                                onClick={() => setShowGroupModal(true)}
+                                className="p-1.5 text-on-surface-variant hover:text-primary transition-colors hover:bg-white/5 rounded-lg cursor-pointer"
+                                title="New Group Chat"
+                            >
+                                <span className="material-symbols-outlined text-[20px]">group_add</span>
+                            </button>
+                        </div>
                         <div className="relative">
                             <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
                             <input
@@ -247,9 +260,36 @@ export default function Messages() {
                                     <button className="p-2 text-on-surface-variant hover:text-primary transition-colors hover:bg-white/5 rounded cursor-pointer">
                                         <span className="material-symbols-outlined">search</span>
                                     </button>
-                                    <button className="p-2 text-on-surface-variant hover:text-primary transition-colors hover:bg-white/5 rounded cursor-pointer">
-                                        <span className="material-symbols-outlined">more_vert</span>
-                                    </button>
+                                    
+                                    {/* Action Menu Dropdown */}
+                                    <div className="relative">
+                                        <button 
+                                            onClick={() => setMenuOpen(!menuOpen)}
+                                            className="p-2 text-on-surface-variant hover:text-primary transition-colors hover:bg-white/5 rounded cursor-pointer">
+                                            <span className="material-symbols-outlined">more_vert</span>
+                                        </button>
+
+                                        {menuOpen && (
+                                            <div className="absolute right-0 mt-2 w-56 bg-surface-container-high border border-white/10 rounded-lg overflow-hidden shadow-2xl z-50 py-1">
+                                                <button 
+                                                    onClick={async () => {
+                                                        setMenuOpen(false);
+                                                        if (window.confirm("Are you sure you want to permanently delete this entire conversation for everyone?")) {
+                                                            try {
+                                                                await chatService.deleteConversation(activeConv.id);
+                                                            } catch (err) {
+                                                                console.error("Failed to delete conversation", err);
+                                                                alert("Failed to delete conversation.");
+                                                            }
+                                                        }
+                                                    }}
+                                                    className="w-full text-left px-4 py-3 text-sm text-error hover:bg-white/5 transition-colors cursor-pointer flex items-center gap-3">
+                                                    <span className="material-symbols-outlined text-[18px]">delete_forever</span>
+                                                    Delete Conversation
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </header>
 
@@ -338,6 +378,8 @@ export default function Messages() {
             </main>
 
             <div className="fixed top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-secondary to-primary opacity-20 z-[60] pointer-events-none"></div>
+
+            {showGroupModal && <CreateGroupModal onClose={() => setShowGroupModal(false)} />}
         </div>
     );
 }
