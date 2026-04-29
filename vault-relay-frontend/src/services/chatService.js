@@ -1,6 +1,6 @@
 import { refreshToken } from './authService';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+const API_URL = '/api';
 
 // Global promise to prevent multiple concurrent refresh calls
 let activeRefreshPromise = null;
@@ -13,6 +13,7 @@ class ChatService {
             ...options,
             credentials: 'include', // Automatically send httpOnly cookies
             headers: {
+                'ngrok-skip-browser-warning': 'true',
                 ...options.headers,
             },
         };
@@ -81,10 +82,10 @@ class ChatService {
         });
     }
 
-    async createGroupConversation({ title, participantIds, avatarUrl }) {
+    async createGroupConversation({ title, participantIds, avatarUrl, memberCanInvite = true }) {
         return await this._fetch('/conversations/group', {
             method: 'POST',
-            body: { title, participantIds, avatarUrl }
+            body: { title, participantIds, avatarUrl, memberCanInvite }
         });
     }
 
