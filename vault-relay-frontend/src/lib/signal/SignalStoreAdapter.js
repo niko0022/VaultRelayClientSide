@@ -321,6 +321,10 @@ class SignalStoreAdapter {
         await this._rawDelete(STORES.SESSIONS, address);
     }
 
+    async removeIdentity(address) {
+        await this._rawDelete(STORES.IDENTITIES, address);
+    }
+
     /**
      * Secures a full message object from the sender locally, encrypting only the sensitive text.
      */
