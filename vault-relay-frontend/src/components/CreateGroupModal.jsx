@@ -112,7 +112,7 @@ export default function CreateGroupModal({ onClose }) {
                         ) : (
                             <div className="space-y-2 max-h-48 overflow-y-auto pr-2 scrollbar-hide">
                                 {friends.map((friendObj) => {
-                                    const friendUserId = friendObj.friend.id;
+                                    const friendUserId = friendObj.user.id;
                                     const isSelected = selectedFriends.has(friendUserId);
 
                                     return (
@@ -125,20 +125,20 @@ export default function CreateGroupModal({ onClose }) {
                                                 }`}
                                         >
                                             <div className="w-10 h-10 rounded-full overflow-hidden bg-surface-container-highest flex-shrink-0">
-                                                {friendObj.friend.avatarUrl ? (
-                                                    <img src={friendObj.friend.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+                                                {friendObj.user.avatarUrl ? (
+                                                    <img src={friendObj.user.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
                                                 ) : (
                                                     <div className="w-full h-full flex items-center justify-center text-on-surface-variant font-bold">
-                                                        {(friendObj.friend.displayName || friendObj.friend.username || '?').charAt(0).toUpperCase()}
+                                                        {(friendObj.user.displayName || friendObj.user.username || '?').charAt(0).toUpperCase()}
                                                     </div>
                                                 )}
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <div className="text-sm font-bold text-on-surface truncate">
-                                                    {friendObj.friend.displayName || friendObj.friend.username}
+                                                    {friendObj.user.displayName || friendObj.user.username}
                                                 </div>
                                                 <div className="text-xs text-on-surface-variant truncate">
-                                                    @{friendObj.friend.username}
+                                                    @{friendObj.user.username}
                                                 </div>
                                             </div>
 
