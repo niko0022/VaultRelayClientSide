@@ -43,10 +43,15 @@ export function useMessages(conversation, currentUserId) {
     const distributedRef = useRef(false);
     // Track message IDs already decrypted this session to avoid re-decrypting
     const decryptedCacheRef = useRef(new Map());
+    // Gate: loadMessages must wait for establishGroupSessions to finish first
+    const [isSessionEstablished, setIsSessionEstablished] = useState(false);
 
     // --- Session Setup ---
     useEffect(() => {
         if (!conversation || !isReady) return;
+
+        // Reset gate when conversation changes
+        setIsSessionEstablished(false);
 
         const initSession = async () => {
             try {
@@ -67,6 +72,9 @@ export function useMessages(conversation, currentUserId) {
             } catch (err) {
                 console.error("Session Setup Error:", err);
                 setError(err.message);
+            } finally {
+                // Always unblock loadMessages even if setup had a non-fatal error
+                setIsSessionEstablished(true);
             }
         };
 
@@ -310,10 +318,11 @@ export function useMessages(conversation, currentUserId) {
         };
     }, [conversationId, currentUserId]);
 
-    // Initial message load
+    // Initial message load — for groups, must wait for establishGroupSessions to finish
+    // so that processGroupDistribution has the 1-to-1 ciphers it needs
     useEffect(() => {
-        if (conversationId && isReady) loadMessages();
-    }, [conversationId, isReady, loadMessages]);
+        if (conversationId && isReady && isSessionEstablished) loadMessages();
+    }, [conversationId, isReady, isSessionEstablished, loadMessages]);
 
     return {
         messages, loading, error, hasOlder, loadOlder,
