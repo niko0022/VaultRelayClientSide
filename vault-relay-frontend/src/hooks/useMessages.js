@@ -43,15 +43,15 @@ export function useMessages(conversation, currentUserId) {
     const distributedRef = useRef(false);
     // Track message IDs already decrypted this session to avoid re-decrypting
     const decryptedCacheRef = useRef(new Map());
-    // Gate: loadMessages must wait for establishGroupSessions to finish first
-    const [isSessionEstablished, setIsSessionEstablished] = useState(false);
+    // Track whether initSession has triggered the first message load for this conversation
+    const initialLoadDoneRef = useRef(false);
 
     // --- Session Setup ---
     useEffect(() => {
         if (!conversation || !isReady) return;
 
-        // Reset gate when conversation changes
-        setIsSessionEstablished(false);
+        // Reset for this conversation
+        initialLoadDoneRef.current = false;
 
         const initSession = async () => {
             try {
@@ -72,15 +72,18 @@ export function useMessages(conversation, currentUserId) {
             } catch (err) {
                 console.error("Session Setup Error:", err);
                 setError(err.message);
-            } finally {
-                // Always unblock loadMessages even if setup had a non-fatal error
-                setIsSessionEstablished(true);
+            }
+
+            // For groups: load messages AFTER sessions are ready (sequential, no race)
+            // For direct: also load here to keep one unified path
+            if (!initialLoadDoneRef.current) {
+                initialLoadDoneRef.current = true;
+                loadMessages();
             }
         };
 
-        // Let's run this once per conversation focus
         initSession();
-    }, [conversation, isReady, currentUserId, remoteDirectUserId, directHasSession, isGroup, establishGroupSessions, directEstablish]);
+    }, [conversation, isReady, currentUserId, remoteDirectUserId, directHasSession, isGroup, establishGroupSessions, directEstablish, loadMessages]);
 
     // --- Decryption Routing ---
     const processMessages = useCallback(async (rawMessages, localMap = new Map()) => {
@@ -318,11 +321,21 @@ export function useMessages(conversation, currentUserId) {
         };
     }, [conversationId, currentUserId]);
 
-    // Initial message load — for groups, must wait for establishGroupSessions to finish
-    // so that processGroupDistribution has the 1-to-1 ciphers it needs
+    // Fallback: if the session setup effect re-fires and the ref is already true,
+    // we still need to handle the case where conversationId changes without initSession running.
+    // This covers edge cases like switching from a group to a direct chat.
     useEffect(() => {
-        if (conversationId && isReady && isSessionEstablished) loadMessages();
-    }, [conversationId, isReady, isSessionEstablished, loadMessages]);
+        if (conversationId && isReady && !initialLoadDoneRef.current) {
+            // If initSession hasn't loaded messages yet (e.g. no conversation object), load now
+            const timer = setTimeout(() => {
+                if (!initialLoadDoneRef.current) {
+                    initialLoadDoneRef.current = true;
+                    loadMessages();
+                }
+            }, 2000); // Safety net — if initSession is still pending after 2s, load anyway
+            return () => clearTimeout(timer);
+        }
+    }, [conversationId, isReady, loadMessages]);
 
     return {
         messages, loading, error, hasOlder, loadOlder,
