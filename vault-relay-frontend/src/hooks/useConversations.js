@@ -103,6 +103,8 @@ export function useConversations() {
                         // Signal protocol addresses usually stringify to 'userId.deviceId'
                         const addressKey = `${p.userId}.1`;
                         signalStoreAdapter.removeSession(addressKey).catch(err => console.error('Failed to sever signal session', err));
+                        // Also wipe stored identity so fresh handshake isn't blocked by "untrusted identity"
+                        signalStoreAdapter.removeIdentity(addressKey).catch(err => console.error('Failed to wipe identity', err));
                     });
                 }
 
