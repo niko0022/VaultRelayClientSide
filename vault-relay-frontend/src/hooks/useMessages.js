@@ -199,7 +199,7 @@ export function useMessages(conversation, currentUserId) {
 
                     socketClient.emit('send_message', {
                         conversationId,
-                        content: JSON.stringify(mapBlob),
+                        content: mapBlob,
                         contentType: 'SIGNAL_KEY_DISTRIBUTION'
                     }, () => { });
 
