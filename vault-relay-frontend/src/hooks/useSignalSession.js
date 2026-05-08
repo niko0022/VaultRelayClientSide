@@ -84,7 +84,7 @@ export function useSignalSession(remoteName, remoteDeviceId) {
             throw new Error("WASM not initialized yet");
         }
         if (cipherRef.current) {
-            throw new Error("Session already established — call resetSession() first if re-keying");
+            return;
         }
 
         // Decode the server bundle mapping JSON Base64 strings to raw Uint8Arrays
