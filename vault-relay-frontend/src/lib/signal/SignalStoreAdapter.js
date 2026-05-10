@@ -422,6 +422,21 @@ class SignalStoreAdapter {
             tx.onerror = () => reject(tx.error);
         });
     }
+
+    /**
+     * Removes a single local message by its ID.
+     * Used when the sender or a socket event deletes a specific message.
+     */
+    async deleteLocalMessage(messageId) {
+        const db = await this.dbPromise;
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORES.LOCAL_MESSAGES, 'readwrite');
+            const store = tx.objectStore(STORES.LOCAL_MESSAGES);
+            const req = store.delete(messageId);
+            req.onsuccess = () => resolve();
+            req.onerror = () => reject(req.error);
+        });
+    }
 }
 
 export const signalStoreAdapter = new SignalStoreAdapter();

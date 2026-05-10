@@ -6,6 +6,7 @@ import { useConversations } from '../hooks/useConversations';
 import { useMessages } from '../hooks/useMessages';
 import { chatService } from '../services/chatService';
 import CreateGroupModal from '../components/CreateGroupModal';
+import MessageContextMenu, { useMessageActions } from '../components/MessageContextMenu';
 
 // Helper to format timestamps
 function formatTime(dateString) {
@@ -65,6 +66,8 @@ export default function Messages() {
         hasOlder,
         loadOlder,
         sendSecureMessage,
+        editSecureMessage,
+        deleteSecureMessage,
         setTypingStatus,
         typingUsers,
         isSessionReady
@@ -78,6 +81,21 @@ export default function Messages() {
     const isTypingRef = useRef(false);
     const messagesEndRef = useRef(null);
     const prevLastMsgIdRef = useRef(null);
+
+    // Edit & Delete (extracted to component + hook)
+    const {
+        editingMessage, setEditingMessage,
+        contextMenu, handleContextMenu,
+        handleEditClick: rawEditClick,
+        handleDeleteClick, handleCloseMenu,
+        cancelEdit,
+    } = useMessageActions({ deleteSecureMessage, user });
+
+    // When entering edit mode, populate the composer
+    const handleEditClick = (msg) => {
+        rawEditClick(msg);
+        setComposerText(msg.content);
+    };
 
     // Auto-scroll only when a genuinely new message arrives at the bottom
     useEffect(() => {
@@ -113,7 +131,18 @@ export default function Messages() {
         const text = composerText.trim();
         setComposerText('');
         setTypingStatus(false);
-        await sendSecureMessage(text);
+
+        if (editingMessage) {
+            // Editing mode: send the edit, then clear editing state
+            try {
+                await editSecureMessage(editingMessage.id, text);
+            } catch (err) {
+                alert(err.message);
+            }
+            setEditingMessage(null);
+        } else {
+            await sendSecureMessage(text);
+        }
     };
 
     const handleKeyDown = (e) => {
@@ -121,7 +150,13 @@ export default function Messages() {
             e.preventDefault();
             handleSend();
         }
+        // Escape cancels editing
+        if (e.key === 'Escape' && editingMessage) {
+            cancelEdit();
+            setComposerText('');
+        }
     };
+
 
     return (
         <div className="bg-background text-on-surface font-body overflow-hidden h-screen flex relative">
@@ -309,17 +344,36 @@ export default function Messages() {
 
                                 {messages.map(msg => {
                                     const isMe = msg.senderId === user?.id;
+                                    const isDeleted = msg.deleted;
+                                    const isEditing = editingMessage?.id === msg.id;
 
                                     return (
-                                        <div key={msg.id} className={`flex flex-col max-w-[75%] gap-1 ${isMe ? 'items-end self-end' : 'items-start'}`}>
-                                            <div className={`p-3.5 shadow-sm text-[15px] leading-relaxed break-words ${isMe
-                                                ? 'bg-secondary-container text-on-secondary-container rounded-tl-xl rounded-bl-xl rounded-br-xl'
-                                                : 'bg-surface-container-high text-on-surface rounded-tr-xl rounded-br-xl rounded-bl-xl border-l-[3px] border-primary/40'
-                                                } ${msg.isPending ? 'opacity-70' : ''}`}>
-                                                <p>{msg.content}</p>
+                                        <div
+                                            key={msg.id}
+                                            className={`flex flex-col max-w-[75%] gap-1 ${isMe ? 'items-end self-end' : 'items-start'}`}
+                                            onContextMenu={(e) => handleContextMenu(e, msg)}
+                                        >
+                                            <div className={`p-3.5 shadow-sm text-[15px] leading-relaxed break-words transition-all ${
+                                                isDeleted
+                                                    ? 'bg-surface-container-low text-on-surface-variant/50 italic rounded-xl border border-white/5'
+                                                    : isMe
+                                                        ? 'bg-secondary-container text-on-secondary-container rounded-tl-xl rounded-bl-xl rounded-br-xl'
+                                                        : 'bg-surface-container-high text-on-surface rounded-tr-xl rounded-br-xl rounded-bl-xl border-l-[3px] border-primary/40'
+                                                } ${msg.isPending ? 'opacity-70' : ''} ${isEditing ? 'ring-2 ring-primary/60' : ''}`}>
+                                                {isDeleted ? (
+                                                    <p className="flex items-center gap-1.5">
+                                                        <span className="material-symbols-outlined text-[14px]">block</span>
+                                                        This message was deleted
+                                                    </p>
+                                                ) : (
+                                                    <p>{msg.content}</p>
+                                                )}
                                             </div>
                                             <div className={`flex items-center gap-2 mt-1 ${isMe ? 'flex-row-reverse' : ''}`}>
                                                 <span className="text-[10px] text-on-surface-variant/60">{formatTime(msg.createdAt)}</span>
+                                                {msg.editedAt && !isDeleted && (
+                                                    <span className="text-[10px] text-on-surface-variant/40 italic">edited</span>
+                                                )}
                                                 {msg.contentType === 'SIGNAL_ENCRYPTED' && (
                                                     <span className="text-[10px] text-primary/70 uppercase font-bold tracking-wider flex items-center gap-0.5">
                                                         <span className="material-symbols-outlined text-[10px]">lock</span>
@@ -338,15 +392,28 @@ export default function Messages() {
 
                             {/* Secure Input Field */}
                             <div className="p-4 md:p-6 bg-[#131313]/90 backdrop-blur-xl shrink-0 border-t border-white/5">
+                                {/* Edit mode banner */}
+                                {editingMessage && (
+                                    <div className="max-w-4xl mx-auto mb-2 flex items-center gap-3 px-4 py-2 bg-primary/10 border border-primary/20 rounded-lg">
+                                        <span className="material-symbols-outlined text-primary text-[18px]">edit</span>
+                                        <span className="text-xs text-primary font-medium flex-1 truncate">Editing message</span>
+                                        <button
+                                            onClick={() => { cancelEdit(); setComposerText(''); }}
+                                            className="p-1 text-on-surface-variant hover:text-error transition-colors cursor-pointer"
+                                        >
+                                            <span className="material-symbols-outlined text-[16px]">close</span>
+                                        </button>
+                                    </div>
+                                )}
                                 <div className="max-w-4xl mx-auto flex items-end gap-3 md:gap-4">
-                                    <div className="flex-1 bg-surface-container-lowest rounded-xl flex flex-col p-1 transition-all border border-surface-container-highest focus-within:border-primary/50 focus-within:shadow-[0_0_15px_rgba(0,229,255,0.1)]">
+                                    <div className={`flex-1 bg-surface-container-lowest rounded-xl flex flex-col p-1 transition-all border ${editingMessage ? 'border-primary/50 shadow-[0_0_15px_rgba(0,229,255,0.1)]' : 'border-surface-container-highest'} focus-within:border-primary/50 focus-within:shadow-[0_0_15px_rgba(0,229,255,0.1)]`}>
                                         <textarea
                                             value={composerText}
                                             onChange={handleTextChange}
                                             onKeyDown={handleKeyDown}
                                             disabled={!isSessionReady}
                                             className="w-full bg-transparent border-none text-on-surface text-[15px] py-3 px-4 focus:ring-0 focus:outline-none resize-none max-h-48 scrollbar-hide placeholder:text-on-surface-variant/50 disabled:opacity-50"
-                                            placeholder={isSessionReady ? "Type an encrypted message..." : "Waiting for secure connection..."}
+                                            placeholder={editingMessage ? "Edit your message..." : (isSessionReady ? "Type an encrypted message..." : "Waiting for secure connection...")}
                                             rows="1"
                                             style={{ minHeight: '44px' }}
                                         ></textarea>
@@ -363,9 +430,11 @@ export default function Messages() {
                                                 <button
                                                     onClick={handleSend}
                                                     disabled={!composerText.trim() || !isSessionReady}
-                                                    className="p-1.5 md:p-2 text-primary hover:bg-primary/10 rounded-lg transition-all active:scale-95 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                                                    className={`p-1.5 md:p-2 ${editingMessage ? 'text-secondary' : 'text-primary'} hover:bg-primary/10 rounded-lg transition-all active:scale-95 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed`}
                                                 >
-                                                    <span className="material-symbols-outlined text-[26px]" style={{ fontVariationSettings: "'FILL' 1" }}>send</span>
+                                                    <span className="material-symbols-outlined text-[26px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                                                        {editingMessage ? 'check' : 'send'}
+                                                    </span>
                                                 </button>
                                             </div>
                                         </div>
@@ -380,6 +449,14 @@ export default function Messages() {
             <div className="fixed top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-secondary to-primary opacity-20 z-[60] pointer-events-none"></div>
 
             {showGroupModal && <CreateGroupModal onClose={() => setShowGroupModal(false)} />}
+
+            <MessageContextMenu
+                contextMenu={contextMenu}
+                messages={messages}
+                onEdit={handleEditClick}
+                onDelete={handleDeleteClick}
+                onClose={handleCloseMenu}
+            />
         </div>
     );
 }
