@@ -7,6 +7,7 @@ import { useMessages } from '../hooks/useMessages';
 import { chatService } from '../services/chatService';
 import CreateGroupModal from '../components/CreateGroupModal';
 import MessageContextMenu, { useMessageActions } from '../components/MessageContextMenu';
+import AttachmentViewer from '../components/AttachmentViewer';
 
 // Helper to format timestamps
 function formatTime(dateString) {
@@ -81,6 +82,8 @@ export default function Messages() {
     const isTypingRef = useRef(false);
     const messagesEndRef = useRef(null);
     const prevLastMsgIdRef = useRef(null);
+    const fileInputRef = useRef(null);
+    const [selectedFile, setSelectedFile] = useState(null);
 
     // Edit & Delete (extracted to component + hook)
     const {
@@ -127,9 +130,11 @@ export default function Messages() {
     };
 
     const handleSend = async () => {
-        if (!composerText.trim() || !selectedConversationId || !isSessionReady) return;
+        if ((!composerText.trim() && !selectedFile) || !selectedConversationId || !isSessionReady) return;
         const text = composerText.trim();
+        const file = selectedFile;
         setComposerText('');
+        setSelectedFile(null);
         setTypingStatus(false);
 
         if (editingMessage) {
@@ -141,7 +146,7 @@ export default function Messages() {
             }
             setEditingMessage(null);
         } else {
-            await sendSecureMessage(text);
+            await sendSecureMessage(text, file);
         }
     };
 
@@ -366,7 +371,15 @@ export default function Messages() {
                                                         This message was deleted
                                                     </p>
                                                 ) : (
-                                                    <p>{msg.content}</p>
+                                                    <>
+                                                        {msg.content && <p>{msg.content}</p>}
+                                                        {(msg.attachmentUrl || msg.attachmentMeta) && (
+                                                            <AttachmentViewer
+                                                                attachmentUrl={msg.attachmentUrl}
+                                                                attachmentMeta={msg.attachmentMeta}
+                                                            />
+                                                        )}
+                                                    </>
                                                 )}
                                             </div>
                                             <div className={`flex items-center gap-2 mt-1 ${isMe ? 'flex-row-reverse' : ''}`}>
@@ -405,6 +418,24 @@ export default function Messages() {
                                         </button>
                                     </div>
                                 )}
+                                {/* Attachment preview banner */}
+                                {selectedFile && (
+                                    <div className="max-w-4xl mx-auto mb-2 flex items-center gap-3 px-4 py-2 bg-secondary/10 border border-secondary/20 rounded-lg">
+                                        <span className="material-symbols-outlined text-secondary text-[18px]">attach_file</span>
+                                        <span className="text-xs text-secondary font-medium flex-1 truncate">{selectedFile.name}</span>
+                                        <span className="text-[10px] text-on-surface-variant">
+                                            {selectedFile.size < 1024 * 1024
+                                                ? `${(selectedFile.size / 1024).toFixed(1)} KB`
+                                                : `${(selectedFile.size / (1024 * 1024)).toFixed(1)} MB`}
+                                        </span>
+                                        <button
+                                            onClick={() => setSelectedFile(null)}
+                                            className="p-1 text-on-surface-variant hover:text-error transition-colors cursor-pointer"
+                                        >
+                                            <span className="material-symbols-outlined text-[16px]">close</span>
+                                        </button>
+                                    </div>
+                                )}
                                 <div className="max-w-4xl mx-auto flex items-end gap-3 md:gap-4">
                                     <div className={`flex-1 bg-surface-container-lowest rounded-xl flex flex-col p-1 transition-all border ${editingMessage ? 'border-primary/50 shadow-[0_0_15px_rgba(0,229,255,0.1)]' : 'border-surface-container-highest'} focus-within:border-primary/50 focus-within:shadow-[0_0_15px_rgba(0,229,255,0.1)]`}>
                                         <textarea
@@ -419,9 +450,22 @@ export default function Messages() {
                                         ></textarea>
                                         <div className="flex items-center justify-between px-2 pb-1.5 pt-1">
                                             <div className="flex gap-0.5">
-                                                <button className="p-2 text-on-surface-variant hover:text-primary transition-colors cursor-pointer rounded-lg hover:bg-white/5">
+                                                <button
+                                                    onClick={() => fileInputRef.current?.click()}
+                                                    className="p-2 text-on-surface-variant hover:text-primary transition-colors cursor-pointer rounded-lg hover:bg-white/5"
+                                                >
                                                     <span className="material-symbols-outlined text-xl">attach_file</span>
                                                 </button>
+                                                <input
+                                                    ref={fileInputRef}
+                                                    type="file"
+                                                    className="hidden"
+                                                    onChange={(e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (file) setSelectedFile(file);
+                                                        e.target.value = ''; // reset so same file can be re-selected
+                                                    }}
+                                                />
                                                 <button className="p-2 text-on-surface-variant hover:text-primary transition-colors cursor-pointer rounded-lg hover:bg-white/5 hidden sm:block">
                                                     <span className="material-symbols-outlined text-xl">mood</span>
                                                 </button>
