@@ -131,6 +131,12 @@ class ChatService {
         });
     }
 
+    async getAttachmentUploadUrl(conversationId) {
+        return await this._fetch(`/conversations/${conversationId}/attachment-upload-url`, {
+            method: 'POST'
+        });
+    }
+
     // --- Keys API ---
 
     async getPreKeyBundles(userIds) {
