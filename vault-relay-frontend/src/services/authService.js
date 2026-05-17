@@ -82,3 +82,28 @@ export async function logout() {
 export async function getMe() {
   return request('/users/me', { method: 'GET' });
 }
+
+export async function updateProfile(payload) {
+  return request('/users/me', {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getAvatarUploadUrl(payload) {
+  return request('/users/me/avatar/upload-url', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function completeAvatarUpload(payload) {
+  return request('/users/me/avatar/complete', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteAvatar() {
+  return request('/users/me/avatar', { method: 'DELETE' });
+}
