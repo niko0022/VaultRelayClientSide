@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { decryptAttachment } from '../../lib/crypto/attachmentCrypto';
+import prettyBytes from 'pretty-bytes';
 
 /**
  * Lazily fetches, decrypts, and displays an encrypted attachment from S3.
  * - Images are rendered inline as <img>.
+ * - Audio files get an inline player with play/pause + progress.
  * - Other files get a download button.
  */
 export default function AttachmentViewer({ attachmentUrl, attachmentMeta }) {
@@ -13,10 +15,17 @@ export default function AttachmentViewer({ attachmentUrl, attachmentMeta }) {
 
     const { aesKey, iv, fileName, mimeType, fileSize } = attachmentMeta || {};
     const isImage = mimeType && mimeType.startsWith('image/');
+    const isAudio = mimeType && mimeType.startsWith('audio/');
 
-    // Automatically fetch and decrypt images; for other files, wait for user click
+    // Audio player state
+    const audioRef = useRef(null);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [currentTime, setCurrentTime] = useState(0);
+    const [duration, setDuration] = useState(0);
+
+    // Automatically fetch and decrypt images and audio; for other files, wait for user click
     useEffect(() => {
-        if (isImage && attachmentUrl && aesKey) {
+        if ((isImage || isAudio) && attachmentUrl && aesKey) {
             fetchAndDecrypt();
         }
         // Cleanup object URL on unmount
@@ -64,12 +73,19 @@ export default function AttachmentViewer({ attachmentUrl, attachmentMeta }) {
         a.click();
     }
 
-    // Format file size
-    function formatSize(bytes) {
-        if (!bytes) return '';
-        if (bytes < 1024) return `${bytes} B`;
-        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    // Format seconds to m:ss
+    function formatDuration(s) {
+        if (!s || !isFinite(s)) return '0:00';
+        const mins = Math.floor(s / 60);
+        const secs = Math.floor(s % 60);
+        return `${mins}:${String(secs).padStart(2, '0')}`;
+    }
+
+    function togglePlayPause() {
+        const audio = audioRef.current;
+        if (!audio) return;
+        if (isPlaying) { audio.pause(); } else { audio.play(); }
+        setIsPlaying(!isPlaying);
     }
 
     if (!attachmentUrl || !attachmentMeta) return null;
@@ -103,9 +119,79 @@ export default function AttachmentViewer({ attachmentUrl, attachmentMeta }) {
                     />
                     {fileName && (
                         <p className="text-[10px] text-on-surface-variant/60 mt-1 truncate max-w-xs">
-                            {fileName} {fileSize ? `· ${formatSize(fileSize)}` : ''}
+                            {fileName} {fileSize ? `· ${prettyBytes(fileSize)}` : ''}
                         </p>
                     )}
+                </div>
+            );
+        }
+        return null;
+    }
+
+    // --- Audio / Voice Message ---
+    if (isAudio) {
+        if (loading) {
+            return (
+                <div className="flex items-center gap-2 py-2 text-on-surface-variant text-xs">
+                    <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
+                    Decrypting audio...
+                </div>
+            );
+        }
+        if (error) {
+            return (
+                <div className="flex items-center gap-2 py-2 text-error text-xs">
+                    <span className="material-symbols-outlined text-sm">error</span>
+                    {error}
+                </div>
+            );
+        }
+        if (objectUrl) {
+            const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
+            return (
+                <div className="mt-1.5 mb-1">
+                    <div className="flex items-center gap-3 px-4 py-3 bg-surface-container-high/50 rounded-lg border border-white/5 max-w-xs">
+                        <button
+                            onClick={togglePlayPause}
+                            className="w-9 h-9 rounded-full bg-primary/20 hover:bg-primary/30 flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                        >
+                            <span className="material-symbols-outlined text-primary text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>
+                                {isPlaying ? 'pause' : 'play_arrow'}
+                            </span>
+                        </button>
+                        <div className="flex-1 flex flex-col gap-1.5 min-w-0">
+                            {/* Progress bar */}
+                            <div
+                                className="w-full h-1.5 bg-surface-container-lowest rounded-full overflow-hidden cursor-pointer"
+                                onClick={(e) => {
+                                    const audio = audioRef.current;
+                                    if (!audio || !duration) return;
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    audio.currentTime = ((e.clientX - rect.left) / rect.width) * duration;
+                                }}
+                            >
+                                <div
+                                    className="h-full bg-primary rounded-full transition-[width] duration-100"
+                                    style={{ width: `${progress}%` }}
+                                />
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-[10px] text-on-surface-variant font-mono">
+                                    {formatDuration(currentTime)}
+                                </span>
+                                <span className="text-[10px] text-on-surface-variant font-mono">
+                                    {formatDuration(duration)}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <audio
+                        ref={audioRef}
+                        src={objectUrl}
+                        onLoadedMetadata={(e) => setDuration(e.target.duration)}
+                        onTimeUpdate={(e) => setCurrentTime(e.target.currentTime)}
+                        onEnded={() => { setIsPlaying(false); setCurrentTime(0); }}
+                    />
                 </div>
             );
         }
@@ -128,7 +214,7 @@ export default function AttachmentViewer({ attachmentUrl, attachmentMeta }) {
                         {fileName || 'Attachment'}
                     </span>
                     <span className="text-[10px] text-on-surface-variant">
-                        {loading ? 'Decrypting...' : (error || formatSize(fileSize) || 'Download')}
+                        {loading ? 'Decrypting...' : (error || prettyBytes(fileSize || 0) || 'Download')}
                     </span>
                 </div>
                 {!loading && objectUrl && (
