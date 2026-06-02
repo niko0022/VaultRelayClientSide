@@ -1,4 +1,11 @@
-import { Link } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
+
+const navLinkClass = ({ isActive }) =>
+  `flex items-center gap-3 px-4 py-3 rounded-lg font-body text-sm font-medium transition-colors ${
+    isActive
+      ? 'bg-[#00e5ff]/10 text-cyan-400 border-l-2 border-cyan-400'
+      : 'text-slate-500 hover:text-slate-300 hover:bg-[#1c1c1c] border-l-2 border-transparent'
+  }`;
 
 export default function SideNavBar() {
   return (
@@ -17,35 +24,24 @@ export default function SideNavBar() {
       </div>
 
       <nav className="flex-1 space-y-2">
-        {/* Relays is active for messaging intent */}
-        <Link to="/vaults" className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-slate-300 hover:bg-[#1c1c1c] transition-colors font-body text-sm font-medium">
+        <NavLink to="/vaults" className={navLinkClass}>
           <span className="material-symbols-outlined">enhanced_encryption</span>
           Vaults
-        </Link>
-        <Link to="/messages" className="flex items-center gap-3 px-4 py-3 bg-[#00e5ff]/10 text-cyan-400 rounded-lg border-l-2 border-cyan-400 font-body text-sm font-medium">
+        </NavLink>
+        <NavLink to="/messages" className={navLinkClass}>
           <span className="material-symbols-outlined">message</span>
           Chats
-        </Link>
-        <Link to="/contacts" className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-slate-300 hover:bg-[#1c1c1c] transition-colors font-body text-sm font-medium">
+        </NavLink>
+        <NavLink to="/contacts" className={navLinkClass}>
           <span className="material-symbols-outlined">group</span>
           Contacts
-        </Link>
-        <Link to="/settings" className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-slate-300 hover:bg-[#1c1c1c] transition-colors font-body text-sm font-medium">
+        </NavLink>
+        <NavLink to="/settings" className={navLinkClass}>
           <span className="material-symbols-outlined">person</span>
           User Settings
-        </Link>
+        </NavLink>
       </nav>
-
-      <div className="pt-4 border-t border-outline-variant/10 space-y-2">
-        <button className="w-full py-2.5 rounded bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all font-['Inter'] text-sm font-bold flex items-center justify-center gap-2">
-          <span className="material-symbols-outlined text-sm">logout</span>
-          LOGOUT
-        </button>
-      </div>
-
-      <button className="mt-4 w-full bg-primary-container text-on-primary-container font-headline font-bold py-3 rounded hover:shadow-[0_0_15px_rgba(0,229,255,0.4)] transition-all active:scale-95 cursor-pointer">
-        New Secure Relay
-      </button>
     </aside>
   );
 }
+
