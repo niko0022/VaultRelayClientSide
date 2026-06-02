@@ -150,6 +150,10 @@ export function useFriends() {
                 setPendingRequests(prev => prev.filter(r => r.friendshipId !== friendshipId));
             }),
 
+            socketClient.on('presence', ({ userId, online, lastSeen }) => {
+                setFriends(prev => prev.map(f => f.user.id === userId ? { ...f, user: { ...f.user, status: online ? 'ONLINE' : 'OFFLINE', lastSeen } } : f));
+            }),
+
             // Someone cancelled their request to us
             socketClient.on('friendHandler.cancelled', ({ friendshipId }) => {
                 setPendingRequests(prev => prev.filter(r => r.friendshipId !== friendshipId));
