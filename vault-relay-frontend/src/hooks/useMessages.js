@@ -122,6 +122,16 @@ export function useMessages(conversation, currentUserId) {
         if (hasOlder && nextCursor && !loading) loadMessages(nextCursor);
     }, [hasOlder, nextCursor, loading, loadMessages]);
 
+    const handleMessagesRead = ({ conversationId: eventConversationId, userId }) => {
+        if (eventConversationId !== conversationId) return;
+        setMessages(prev => prev.map(msg => {
+            if (msg.senderId !== userId && !msg.receipts?.some(r => r.userId === userId)) {
+                return { ...msg, receipts: [...(msg.receipts || []), { userId, readAt: new Date().toISOString() }] };
+            }
+            return msg;
+        }));
+    }
+
     // --- Sending (delegates to messageSending.js) ---
     const sendSecureMessage = useCallback(async (plaintext, attachment = null) => {
         await sendSecureMessageCore(plaintext, attachment, {
@@ -217,6 +227,7 @@ export function useMessages(conversation, currentUserId) {
                     });
                 }
             }),
+            socketClient.on('messages.read', handleMessagesRead),
             socketClient.on('typing', ({ userId, typing }) => {
                 setTypingUsers(prev => {
                     const newSet = new Set(prev);
