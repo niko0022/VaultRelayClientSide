@@ -29,6 +29,7 @@ export function useMessagePage(user) {
     const activeConv = conversations.find(c => c.id === selectedConversationId);
     let recipientId = null;
     let recipientName = 'Unknown User';
+    let recipientUser = null;
     const isGroupChat = activeConv?.type === 'GROUP';
 
     if (activeConv && user) {
@@ -38,13 +39,14 @@ export function useMessagePage(user) {
             const isUserA = activeConv.participantAId === user.id;
             const participant = isUserA ? activeConv.participantB : activeConv.participantA;
             recipientId = isUserA ? activeConv.participantBId : activeConv.participantAId;
-            recipientName = participant?.displayName;
+            recipientName = participant?.displayName || participant?.username;
+            recipientUser = participant;
         }
     }
 
     // --- Message History State ---
     const {
-        messages,
+        messages: rawMessages,
         loading: messagesLoading,
         error: messagesError,
         hasOlder,
@@ -56,6 +58,41 @@ export function useMessagePage(user) {
         typingUsers,
         isSessionReady
     } = useMessages(activeConv, user?.id);
+
+    const messages = rawMessages.map(msg => {
+        const participant = activeConv?.participants?.find(p => p.userId === msg.senderId);
+        const resolvedSender = participant?.user || msg.sender;
+        const resolvedReceipts = (msg.receipts || []).map(receipt => {
+            const receiptParticipant = activeConv?.participants?.find(p => p.userId === receipt.userId);
+            return { ...receipt, user: receipt?.user || receiptParticipant?.user }
+        })
+
+        return { ...msg, sender: resolvedSender, receipts: resolvedReceipts };
+    })
+
+    // --- Typing Label ---
+    const typingLabel = (() => {
+        if (typingUsers.size === 0) return null;
+
+        if (!isGroupChat) {
+            // Direct chat: only one person can be typing, and we already have their name
+            return typingUsers.has(recipientId) ? `${recipientName} is typing` : null;
+        }
+
+        // Group chat: look up names from the participant list on the conversation
+        const participants = activeConv?.participants || [];
+        const names = [...typingUsers]
+            .map(uid => {
+                const p = participants.find(p => p.userId === uid);
+                return p?.user?.displayName || p?.user?.username;
+            })
+            .filter(Boolean);
+
+        if (names.length === 0) return null;
+        if (names.length === 1) return `${names[0]}`;
+        if (names.length === 2) return `${names[0]}, ${names[1]}`;
+        return `${names[0]}, ${names.length - 1}`;
+    })();
 
     // --- Composer & UI State ---
     const [composerText, setComposerText] = useState('');
@@ -109,9 +146,9 @@ export function useMessagePage(user) {
     };
 
     const handleSend = async () => {
-        if ((!composerText.trim() && !selectedFile) || !selectedConversationId || !isSessionReady) return;
-        const text = composerText.trim();
         const file = selectedFile;
+        if ((!composerText.trim() && !file) || !selectedConversationId || !isSessionReady) return;
+        const text = composerText.trim();
         setComposerText('');
         setSelectedFile(null);
         setTypingStatus(false);
@@ -150,8 +187,8 @@ export function useMessagePage(user) {
 
     return {
         conversations, selectedConversationId, selectConversation, convsLoading,
-        activeConv, recipientId, recipientName, isGroupChat,
-        messages, messagesLoading, messagesError, hasOlder, loadOlder, typingUsers, isSessionReady,
+        activeConv, recipientId, recipientName, recipientUser, isGroupChat,
+        messages, messagesLoading, messagesError, hasOlder, loadOlder, typingUsers, typingLabel, isSessionReady,
         composerText, setComposerText, menuOpen, setMenuOpen, showGroupModal, setShowGroupModal, selectedFile, setSelectedFile,
         editingMessage, contextMenu, handleContextMenu, handleEditClick, handleDeleteClick, handleCloseMenu, cancelEdit,
         messagesEndRef,
