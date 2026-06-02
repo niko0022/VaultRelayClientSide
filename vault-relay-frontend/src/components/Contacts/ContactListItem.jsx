@@ -17,9 +17,11 @@ export default function ContactListItem({ friend, isSelected, onSelect }) {
                             <span className="material-symbols-outlined text-on-surface-variant text-2xl">person</span>
                         </div>
                     )}
-                    {isSelected && (
+                    {friend.user.status === 'ONLINE' ? (
+                        <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full ring-2 ring-background animate-pulse" title="Online"></div>
+                    ) : isSelected ? (
                         <div className="absolute bottom-0 right-0 w-3 h-3 bg-primary-container rounded-full ring-2 ring-background"></div>
-                    )}
+                    ) : null}
                 </div>
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
