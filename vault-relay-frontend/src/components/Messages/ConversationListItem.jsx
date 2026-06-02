@@ -3,14 +3,17 @@ import { formatTime } from '../../utils/timeFormat';
 export default function ConversationListItem({ conv, user, isSelected, selectConversation }) {
     const isUnread = conv.unreadCount > 0;
 
-    // Resolve display name for list preview
+    // Resolve display name and peer profile for direct chats
+    const peer = conv.type === 'DIRECT'
+        ? (conv.participantAId === user?.id ? conv.participantB : conv.participantA)
+        : null;
+    const isOnline = peer?.status === 'ONLINE';
+
     let peerName;
     if (conv.type === 'GROUP') {
         peerName = conv.title || 'Group Chat';
     } else {
-        peerName = conv.participantAId === user?.id
-            ? (conv.participantB?.displayName || conv.participantB?.username)
-            : (conv.participantA?.displayName || conv.participantA?.username);
+        peerName = peer?.displayName || 'Unknown User';
     }
 
     // Determine preview text
@@ -32,8 +35,19 @@ export default function ConversationListItem({ conv, user, isSelected, selectCon
             {isSelected && <div className="absolute left-0 top-1/2 -translate-y-1/2 h-8 w-1 bg-primary rounded-r"></div>}
 
             <div className="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center shrink-0 relative">
-                <span className="material-symbols-outlined text-on-surface-variant">person</span>
-                {isUnread && (
+                {peer?.avatarUrl ? (
+                    <img
+                        src={peer.avatarUrl}
+                        alt={peerName}
+                        className="w-full h-full rounded-full object-cover"
+                    />
+                ) : (
+                    <span className="material-symbols-outlined text-on-surface-variant">person</span>
+                )}
+                {isOnline && (
+                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-surface-container-low" title="Online"></div>
+                )}
+                {isUnread && !isOnline && (
                     <div className="absolute -right-0.5 -bottom-0.5 w-3 h-3 bg-primary rounded-full border-2 border-surface-container-low"></div>
                 )}
             </div>
