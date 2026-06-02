@@ -42,9 +42,21 @@ export default function ContactDetailView({
                                     <h2 className="font-headline text-5xl lg:text-7xl font-bold tracking-tighter text-on-background">
                                         {selectedFriend.user.displayName || selectedFriend.user.username}
                                     </h2>
-                                    <span className="bg-primary-container/10 text-primary-container text-xs font-bold px-4 py-1.5 rounded-full border border-primary-container/20 uppercase tracking-[0.2em]">
-                                        Secure Contact
-                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="bg-primary-container/10 text-primary-container text-xs font-bold px-4 py-1.5 rounded-full border border-primary-container/20 uppercase tracking-[0.2em]">
+                                            Secure Contact
+                                        </span>
+                                        {selectedFriend.user.status === 'ONLINE' ? (
+                                            <span className="bg-green-500/10 text-green-400 text-xs font-bold px-4 py-1.5 rounded-full border border-green-500/20 uppercase tracking-[0.2em] flex items-center gap-1.5 shadow-[0_0_15px_rgba(34,197,94,0.1)]">
+                                                <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-ping"></span>
+                                                Online
+                                            </span>
+                                        ) : (
+                                            <span className="bg-surface-container-highest/50 text-on-surface-variant/50 text-xs font-bold px-4 py-1.5 rounded-full border border-white/5 uppercase tracking-[0.2em]">
+                                                Offline
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                                 {selectedFriend.user.friendCode && (
                                     <div className="flex items-center justify-center gap-2 mt-4">
