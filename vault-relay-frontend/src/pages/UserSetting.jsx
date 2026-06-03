@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import SideNavBar from '../components/Shared/SideNavBar';
-import { useAuth } from '../contexts/AuthContext';
+import useAuth from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { getAvatarUploadUrl, completeAvatarUpload, deleteAvatar, updateProfile } from '../services/authService';
 
 function EditableField({ label, fieldKey, currentValue, onSave }) {
@@ -56,8 +57,9 @@ function EditableField({ label, fieldKey, currentValue, onSave }) {
 }
 
 export default function UserSetting() {
-    const { user, checkAuth } = useAuth();
+    const { user, checkAuth, logout, nukeAccount } = useAuth();
     const [avatarUploading, setAvatarUploading] = useState(false);
+    const navigate = useNavigate();
 
     const handleSaveProfile = async (fieldKey, value) => {
         try {
@@ -67,6 +69,30 @@ export default function UserSetting() {
             console.error(`${fieldKey} update failed`, err);
             alert(err.message);
             throw err;
+        }
+    };
+
+    const handleLogout = async () => {
+        if (!window.confirm("Are you sure you want to logout?")) return;
+        try {
+            await logout();
+            navigate("/login");
+        } catch (err) {
+            alert("Logout failed: " + err.message);
+        }
+    };
+
+    const handleNukeAccount = async () => {
+        const confirm1 = window.confirm("WARNING: This will permanently delete your account, all friends, and all messages. Are you absolutely sure?");
+        if (!confirm1) return;
+        const confirm2 = window.prompt("Type 'DELETE' to confirm");
+        if (confirm2 !== "DELETE") return;
+
+        try {
+            await nukeAccount();
+            navigate("/register");
+        } catch (err) {
+            alert("Account deletion failed: " + err.message);
         }
     };
 
@@ -219,7 +245,7 @@ export default function UserSetting() {
                                             <div className="text-xs text-on-surface-variant">Last active: 4 hours ago • Paris, FR</div>
                                         </div>
                                     </div>
-                                    <button className="opacity-0 group-hover:opacity-100 p-2 text-error hover:bg-error/10 rounded transition-all cursor-pointer">
+                                    <button onClick={handleLogout} className="opacity-0 group-hover:opacity-100 p-2 text-error hover:bg-error/10 rounded transition-all cursor-pointer">
                                         <span className="material-symbols-outlined text-sm">logout</span>
                                     </button>
                                 </div>
@@ -239,7 +265,7 @@ export default function UserSetting() {
                                     <p className="text-on-error-container font-medium">Irreversibly delete account, cryptographic keys, and all message data.</p>
                                     <p className="text-xs text-on-error-container/60 mt-2">Warning: This action triggers a recursive wipe across all relay nodes. Data recovery is mathematically impossible once initiated.</p>
                                 </div>
-                                <button className="px-8 py-4 bg-error text-on-error rounded-lg font-bold uppercase tracking-widest text-xs hover:bg-error/80 hover:scale-[1.02] active:scale-95 transition-all shadow-[0_10px_30px_rgba(255,180,171,0.2)] cursor-pointer">
+                                <button onClick={handleNukeAccount} className="px-8 py-4 bg-error text-on-error rounded-lg font-bold uppercase tracking-widest text-xs hover:bg-error/80 hover:scale-[1.02] active:scale-95 transition-all shadow-[0_10px_30px_rgba(255,180,171,0.2)] cursor-pointer">
                                     Nuke Everything
                                 </button>
                             </div>
