@@ -15,12 +15,12 @@ export default function Messages() {
 
     const {
         conversations, selectedConversationId, selectConversation, convsLoading,
-        activeConv, recipientId, recipientName, isGroupChat,
-        messages, messagesLoading, messagesError, hasOlder, loadOlder, typingUsers, isSessionReady,
+        recipientName, recipientUser,
+        messages, messagesLoading, messagesError, hasOlder, loadOlder, isSessionReady,
         composerText, setComposerText, menuOpen, setMenuOpen, showGroupModal, setShowGroupModal, selectedFile, setSelectedFile,
         editingMessage, contextMenu, handleContextMenu, handleEditClick, handleDeleteClick, handleCloseMenu, cancelEdit,
         messagesEndRef,
-        handleTextChange, handleSend, handleKeyDown, handleDeleteConversation
+        handleTextChange, handleSend, handleKeyDown, handleDeleteConversation, typingLabel
     } = useMessagePage(user);
 
 
@@ -52,20 +52,11 @@ export default function Messages() {
                             {/* TopAppBar */}
                             <ActiveChatHeader
                                 recipientName={recipientName}
+                                recipientUser={recipientUser}
                                 isSessionReady={isSessionReady}
-                                isGroupChat={isGroupChat}
-                                typingUsers={typingUsers}
-                                recipientId={recipientId}
                                 menuOpen={menuOpen}
                                 setMenuOpen={setMenuOpen}
-                                onDeleteConversation={async () => {
-                                    try {
-                                        await chatService.deleteConversation(activeConv.id);
-                                    } catch (err) {
-                                        console.error("Failed to delete conversation", err);
-                                        alert("Failed to delete conversation.");
-                                    }
-                                }}
+                                onDeleteConversation={handleDeleteConversation}
                             />
 
                             {/* Message History */}
@@ -102,6 +93,20 @@ export default function Messages() {
                                     />
                                 ))}
                                 <div ref={messagesEndRef} />
+                            </div>
+
+                            {/* Typing Indicator */}
+                            <div className={`px-6 pb-1 h-7 flex items-center transition-all duration-300 ${typingLabel ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                                {typingLabel && (
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-0.5">
+                                            <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                                            <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                                            <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                                        </div>
+                                        <span className="text-xs text-on-surface-variant italic">{typingLabel}...</span>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Secure Input Field */}
