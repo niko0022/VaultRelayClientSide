@@ -1,5 +1,6 @@
 import { io } from 'socket.io-client';
 import { refreshToken } from './authService';
+import { logEvent } from '../lib/eventLog';
 
 const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
@@ -22,10 +23,12 @@ class SocketClient {
 
         this.socket.on('connect', () => {
             console.log('[Socket] Connected directly via httpOnly cookie auth');
+            logEvent('SOCKET', 'Secure WebSocket connection established');
         });
 
         this.socket.on('disconnect', (reason) => {
             console.log('[Socket] Disconnected:', reason);
+            logEvent('SOCKET', `WebSocket disconnected: ${reason}`, 'warn');
         });
 
         this.socket.on('connect_error', (error) => {
@@ -41,6 +44,7 @@ class SocketClient {
                     })
                     .catch(err => {
                         console.error('[Socket] Token refresh failed, user must re-login:', err);
+                        logEvent('AUTH', 'Session token refresh failed — re-login required', 'error');
                     });
             }
         });
