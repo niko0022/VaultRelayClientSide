@@ -1,3 +1,5 @@
+import { logEvent } from '../lib/eventLog';
+
 const API_BASE_URL = '/api';
 
 async function request(endpoint, options = {}) {
@@ -24,9 +26,10 @@ async function request(endpoint, options = {}) {
         },
         credentials: 'include',
       });
-      
+
       if (refreshRes.ok) {
         // Refresh succeeded! Retry the original request exactly once
+        logEvent('AUTH', 'Session token silently refreshed');
         res = await fetch(`${API_BASE_URL}${endpoint}`, config);
       }
     } catch (err) {
@@ -106,4 +109,8 @@ export async function completeAvatarUpload(payload) {
 
 export async function deleteAvatar() {
   return request('/users/me/avatar', { method: 'DELETE' });
+}
+
+export async function deleteAccount() {
+  return request('/users/me', { method: 'DELETE' });
 }
