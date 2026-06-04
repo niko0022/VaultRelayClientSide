@@ -340,6 +340,9 @@ class SignalStoreAdapter {
             senderId: msgObj.senderId,
             createdAt: msgObj.createdAt,
             contentType: msgObj.contentType,
+            sender: msgObj.sender ? {
+                displayName: msgObj.sender.displayName
+            } : null,
             envelope: { iv, ct }
         };
 
@@ -383,7 +386,8 @@ class SignalStoreAdapter {
                     senderId: rec.senderId,
                     createdAt: rec.createdAt,
                     contentType: rec.contentType,
-                    content: plaintext, // restored decrypted text!
+                    sender: rec.sender,
+                    content: plaintext,
                     isDecrypted: true,
                     isLocalCache: true
                 });
@@ -436,6 +440,51 @@ class SignalStoreAdapter {
             req.onsuccess = () => resolve();
             req.onerror = () => reject(req.error);
         });
+    }
+
+    async getDatabaseStats() {
+        const db = await this.dbPromise;
+        const stores = {
+            messages: STORES.LOCAL_MESSAGES,
+            preKeys: STORES.PRE_KEYS,
+            signedPreKeys: STORES.SIGNED_PRE_KEYS,
+            kyberPreKeys: STORES.KYBER_PRE_KEYS,
+            sessions: STORES.SESSIONS
+        };
+
+        const stats = {};
+        await Promise.all(
+            Object.entries(stores).map(([key, storeName]) => {
+                return new Promise((resolve) => {
+                    const tx = db.transaction(storeName, 'readonly');
+                    const store = tx.objectStore(storeName);
+                    const req = store.count();
+                    req.onsuccess = () => {
+                        stats[key] = req.result;
+                        resolve();
+                    };
+                    req.onerror = () => {
+                        stats[key] = 0;
+                        resolve();
+                    };
+                });
+            })
+        );
+        return stats;
+    }
+
+    async deleteAllLocalData() {
+        const db = await this.dbPromise;
+        db.close();
+        return new Promise((resolve, reject) => {
+            const deletereq = indexedDB.deleteDatabase(DB_NAME);
+            deletereq.onsuccess = () => resolve()
+            deletereq.onerror = () => reject(deletereq.error)
+            deletereq.onblocked = () => {
+                console.warn('DB deletion blocked, it might be used by another tab');
+                resolve(false);
+            }
+        })
     }
 }
 

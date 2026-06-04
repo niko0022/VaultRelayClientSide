@@ -1,5 +1,6 @@
 import { initSignalStorage, signalStoreAdapter } from './SignalStoreAdapter';
 import { verifyCryptoIntegrity } from './verifyCryptoIntegrity';
+import { logEvent } from '../eventLog';
 
 /**
  * Singleton WASM initializer.
@@ -53,6 +54,7 @@ async function uploadKeysIfNeeded() {
         }
 
         console.log('[initWasm] Keys missing or device wiped. Generating fresh PreKey bundle...');
+        logEvent('KEY_GEN', 'Generating fresh PreKey bundle (100 OTK + SPK + Kyber)');
 
         // Dynamically import key generation functions from the same WASM module
         const {
@@ -97,7 +99,9 @@ async function uploadKeysIfNeeded() {
         });
 
         console.log('[initWasm] Pre-key bundle uploaded to server successfully.');
+        logEvent('KEY_UPLOAD', 'Pre-key bundle uploaded to relay server');
     } catch (err) {
         console.error('[initWasm] Failed to upload keys — others cannot message you:', err);
+        logEvent('KEY_UPLOAD', 'Pre-key upload failed', 'error');
     }
 }

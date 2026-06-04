@@ -18,6 +18,8 @@
  *   Layer 6: Freeze — lock down all crypto objects and prototypes
  */
 
+import { logEvent } from '../eventLog';
+
 /**
  * Verifies the integrity of `window.crypto` and `crypto.subtle`.
  * Must be called BEFORE any WASM initialization or key generation.
@@ -156,6 +158,7 @@ export async function verifyCryptoIntegrity() {
     });
 
     console.info('[Signal] Crypto integrity verified and frozen.');
+    logEvent('CRYPTO_OK', 'Web Crypto API integrity verified (6-layer) and frozen');
 }
 
 /**

@@ -10,6 +10,7 @@ import { uint8ArrayToBase64, base64ToUint8Array, decodeServerBundle } from '../l
 export function useSignalSession(remoteName, remoteDeviceId) {
     const [isReady, setIsReady] = useState(false);
     const [hasSession, setHasSession] = useState(false);
+    const hasSessionRef = useRef(false);
     const [error, setError] = useState(null);
 
     // Refs to hold WASM objects to avoid re-creating on every render
@@ -30,7 +31,8 @@ export function useSignalSession(remoteName, remoteDeviceId) {
                 wasmReady.current = true;
 
                 if (!remoteName) {
-                    // Chat window is open, but no specific user is selected yet. Skip session loading.
+                    // Chat window is open, but no specific user is selected yet (or it's a group chat).
+                    setIsReady(true);
                     return;
                 }
 
@@ -38,15 +40,18 @@ export function useSignalSession(remoteName, remoteDeviceId) {
                 const address = new SignalProtocolAddress(remoteName, parseInt(remoteDeviceId));
                 addressRef.current = address;
 
+                // ALWAYS create cipher directly so we can decrypt incoming PreKey messages
+                // The WASM bridge handles checking local storage internally when decrypting
+                const sessionCipher = new SessionCipher(address);
+                cipherRef.current = sessionCipher;
+
                 // Check if we already have an established session
                 const addressKey = `${remoteName}.${remoteDeviceId}`;
                 const existingSession = await signalStoreAdapter.loadSession(addressKey);
 
                 if (existingSession) {
-                    // Session exists — create cipher directly
-                    const sessionCipher = new SessionCipher(address);
-                    cipherRef.current = sessionCipher;
                     setHasSession(true);
+                    hasSessionRef.current = true;
                 }
 
                 setIsReady(true);
@@ -81,9 +86,9 @@ export function useSignalSession(remoteName, remoteDeviceId) {
      */
     const establishSession = useCallback(async (bundle) => {
         if (!wasmReady.current || !addressRef.current) {
-            throw new Error("WASM not initialized yet");
+            throw new Error("Cannot establish direct session: no remote user specified");
         }
-        if (cipherRef.current) {
+        if (hasSessionRef.current) {
             return;
         }
 
@@ -118,10 +123,9 @@ export function useSignalSession(remoteName, remoteDeviceId) {
         builder.free();
         builderRef.current = null;
 
-        // Session is now stored — create the cipher
-        const sessionCipher = new SessionCipher(addressRef.current);
-        cipherRef.current = sessionCipher;
+        // Session is now stored
         setHasSession(true);
+        hasSessionRef.current = true;
     }, []);
 
     /**
@@ -147,12 +151,13 @@ export function useSignalSession(remoteName, remoteDeviceId) {
         }
 
         setHasSession(false);
+        hasSessionRef.current = false;
     }, [remoteName, remoteDeviceId]);
 
     // ─── Active Messaging Logic ──────────────────────────────────────
 
     const encryptMessage = useCallback(async (text) => {
-        if (!cipherRef.current) throw new Error("No session — call establishSession first");
+        if (!hasSessionRef.current || !cipherRef.current) throw new Error("No session — call establishSession first");
 
         const encoder = new TextEncoder();
         const bytes = encoder.encode(text);
@@ -186,6 +191,12 @@ export function useSignalSession(remoteName, remoteDeviceId) {
         try {
             const plaintextBytes = await cipherRef.current.decrypt(msgType, bodyBytes);
             const decoder = new TextDecoder();
+
+            if (!hasSessionRef.current) {
+                setHasSession(true);
+                hasSessionRef.current = true;
+            }
+
             return decoder.decode(plaintextBytes);
         } catch (e) {
             if (e && typeof e === 'object' && e.type === 'UntrustedIdentity') {

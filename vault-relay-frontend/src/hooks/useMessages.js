@@ -4,6 +4,9 @@ import { socketClient } from '../services/socketClient';
 import { useSignalSession } from './useSignalSession';
 import { useGroupSignalSession } from './useGroupSignalSession';
 import { signalStoreAdapter } from '../lib/signal/SignalStoreAdapter';
+import { processMessages as processMessagesCore } from './messageProcessing';
+import { sendSecureMessage as sendSecureMessageCore } from './messageSending';
+import { editSecureMessage as editSecureMessageCore, deleteSecureMessage as deleteSecureMessageCore } from './messageActions';
 
 // Helper to deduce remote user in a 1-to-1 chat
 function getDirectRemoteUserId(conversation, currentUserId) {
@@ -65,9 +68,6 @@ export function useMessages(conversation, currentUserId) {
                         const bundles = response.bundles || response;
                         await establishGroupSessions(bundles);
                     }
-                } else if (remoteDirectUserId && !directHasSession) {
-                    const bundle = await chatService.getPreKeyBundle(remoteDirectUserId);
-                    await directEstablish(bundle);
                 }
             } catch (err) {
                 console.error("Session Setup Error:", err);
@@ -85,73 +85,12 @@ export function useMessages(conversation, currentUserId) {
         initSession();
     }, [conversation, isReady, currentUserId, remoteDirectUserId, directHasSession, isGroup, establishGroupSessions, directEstablish, loadMessages]);
 
-    // --- Decryption Routing ---
+    // --- Decryption Routing (delegates to messageProcessing.js) ---
     const processMessages = useCallback(async (rawMessages, localMap = new Map()) => {
-        if (!isReady) return rawMessages;
-
-        const processed = [];
-        for (const msg of rawMessages) {
-
-            // Handle Key Distribution Messages
-            if (msg.contentType === 'SIGNAL_KEY_DISTRIBUTION') {
-                if (isGroup && msg.senderId !== currentUserId) {
-                    try {
-                        let parsedMap = msg.content;
-                        if (typeof msg.content === 'string') parsedMap = JSON.parse(msg.content);
-
-                        await processGroupDistribution(msg.senderId, conversationId, parsedMap);
-                    } catch (err) {
-                        console.error('Failed to unpack distribution key:', err);
-                    }
-                }
-                // Key distribution is a system message — don't show it in the UI list
-                continue;
-            }
-
-            if (msg.contentType === 'SIGNAL_ENCRYPTED') {
-                // If it is in local IndexedDB history (we sent it OR we already received and decrypted it in a past session)
-                if (localMap.has(msg.id)) {
-                    processed.push(localMap.get(msg.id));
-                    continue;
-                }
-
-                if (msg.senderId === currentUserId) {
-                    // If not in local cache (should be rare), just mark as sent
-                    processed.push({ ...msg, content: 'Message Sent' });
-                } else {
-                    // If we already decrypted this message in THIS session (in RAM cache)
-                    if (decryptedCacheRef.current.has(msg.id)) {
-                        processed.push({ ...msg, content: decryptedCacheRef.current.get(msg.id), isDecrypted: true });
-                        continue;
-                    }
-                    try {
-                        let plaintext = 'Error decrypting message';
-                        if (isGroup) {
-                            plaintext = await decryptGroupMessage(msg.senderId, conversationId, msg.content);
-                        } else if (directHasSession) {
-                            plaintext = await directDecrypt(msg.content);
-                        } else {
-                            plaintext = 'Encrypted Message (Initializing...)';
-                        }
-                        decryptedCacheRef.current.set(msg.id, plaintext);
-                        const finalizedMsg = { ...msg, content: plaintext, isDecrypted: true, contentType: 'TEXT' };
-                        processed.push(finalizedMsg);
-
-                        // Save the freshly decrypted message to IndexedDB so next time we load from server
-                        // we read it from local cache instead of double-decrypting and breaking the ratchet.
-                        signalStoreAdapter.saveLocalMessage(finalizedMsg).catch(e => {
-                            console.error('Failed to cache decrypted message', e);
-                        });
-                    } catch (err) {
-                        console.error("Failed to decrypt message", msg.id, err);
-                        processed.push({ ...msg, content: 'Error decrypting message', isDecrypted: false });
-                    }
-                }
-            } else {
-                processed.push(msg);
-            }
-        }
-        return processed;
+        return processMessagesCore(rawMessages, localMap, {
+            isReady, isGroup, conversationId, currentUserId,
+            decryptedCacheRef, directDecrypt, decryptGroupMessage, processGroupDistribution,
+        });
     }, [isReady, isGroup, conversationId, currentUserId, directHasSession, decryptGroupMessage, directDecrypt, processGroupDistribution]);
 
     const processMessagesRef = useRef(processMessages);
@@ -166,7 +105,6 @@ export function useMessages(conversation, currentUserId) {
             const data = await chatService.getMessages(conversationId, { limit: 50, cursor });
 
             // Fetch local plaintext cache BEFORE processing server messages
-            // This prevents double-decrypting received messages we've previously decrypted
             const localMsgs = await signalStoreAdapter.getLocalMessages(conversationId);
             const localMap = new Map(localMsgs.map(m => [m.id, m]));
 
@@ -196,152 +134,53 @@ export function useMessages(conversation, currentUserId) {
         if (hasOlder && nextCursor && !loading) loadMessages(nextCursor);
     }, [hasOlder, nextCursor, loading, loadMessages]);
 
-    // --- Sending Messages ---
-    const sendSecureMessage = useCallback(async (plaintext) => {
-        if (!conversationId) return;
-        try {
-            let encryptedPayload;
-
-            if (isGroup) {
-                // If we haven't distributed our key for this group yet in this session, do it now.
-                if (!distributedRef.current) {
-                    const participantIds = (conversation.participants || []).map(p => p.userId);
-                    const mapBlob = await generateGroupDistributionMap(conversationId, participantIds);
-
-                    socketClient.emit('send_message', {
-                        conversationId,
-                        content: mapBlob,
-                        contentType: 'SIGNAL_KEY_DISTRIBUTION'
-                    }, () => { });
-
-                    distributedRef.current = true;
-                }
-                encryptedPayload = await encryptGroupMessage(conversationId, plaintext);
-            } else {
-                if (!directHasSession) throw new Error("1-to-1 session not established");
-                encryptedPayload = await directEncrypt(plaintext);
+    const handleMessagesRead = ({ conversationId: eventConversationId, userId }) => {
+        if (eventConversationId !== conversationId) return;
+        setMessages(prev => prev.map(msg => {
+            if (msg.senderId !== userId && !msg.receipts?.some(r => r.userId === userId)) {
+                return { ...msg, receipts: [...(msg.receipts || []), { userId, readAt: new Date().toISOString() }] };
             }
+            return msg;
+        }));
+    }
 
-            // Optimistic UI
-            const tempId = `temp-${crypto.randomUUID()}`;
-            const optimisticMsg = {
-                id: tempId, conversationId, senderId: currentUserId,
-                content: plaintext, contentType: 'TEXT',
-                createdAt: new Date().toISOString(), isPending: true
-            };
-            setMessages(prev => [...prev, optimisticMsg]);
-
-            const payload = {
-                conversationId,
-                content: encryptedPayload,
-                contentType: 'SIGNAL_ENCRYPTED'
-            };
-
-            socketClient.emit('send_message', payload, async (ack) => {
-                if (ack && !ack.success) {
-                    setError(ack.error);
-                    setMessages(prev => prev.filter(m => m.id !== tempId));
-                } else if (ack && ack.success) {
-                    const finalizedMsg = { ...ack.message, content: plaintext, contentType: 'TEXT' };
-                    setMessages(prev => prev.map(m => m.id === tempId ? finalizedMsg : m));
-                    try {
-                        await signalStoreAdapter.saveLocalMessage(finalizedMsg);
-                    } catch (e) {
-                        console.error('Failed to stash local message cache', e);
-                    }
-                }
-            });
-
-        } catch (err) {
-            console.error("Encryption failed:", err);
-            setError(err.message);
-        }
+    // --- Sending (delegates to messageSending.js) ---
+    const sendSecureMessage = useCallback(async (plaintext, attachment = null) => {
+        await sendSecureMessageCore(plaintext, attachment, {
+            conversationId, isGroup, conversation, currentUserId,
+            directHasSession, directEncrypt, directEstablish, remoteDirectUserId,
+            encryptGroupMessage, generateGroupDistributionMap, distributedRef,
+            setMessages, setError,
+        });
     }, [
         conversationId, isGroup, conversation, currentUserId, directHasSession,
         directEncrypt, encryptGroupMessage, generateGroupDistributionMap
     ]);
 
-    // --- Edit Message ---
-    const EDIT_WINDOW_MS = 48 * 60 * 60 * 1000;
-
+    // --- Edit (delegates to messageActions.js) ---
     const editSecureMessage = useCallback(async (messageId, newPlaintext) => {
-        if (!conversationId) return;
-
-        // Find the original message to check the 48h window
-        const original = messages.find(m => m.id === messageId);
-        if (!original) throw new Error('Message not found in current view');
-        if (original.senderId !== currentUserId) throw new Error('You can only edit your own messages');
-
-        if (Date.now() - new Date(original.createdAt).getTime() > EDIT_WINDOW_MS) {
-            throw new Error('Edit window expired: messages can only be edited within 48 hours');
-        }
-
-        try {
-            // Re-encrypt the new plaintext
-            let encryptedPayload;
-            if (isGroup) {
-                encryptedPayload = await encryptGroupMessage(conversationId, newPlaintext);
-            } else {
-                if (!directHasSession) throw new Error('1-to-1 session not established');
-                encryptedPayload = await directEncrypt(newPlaintext);
-            }
-
-            // Send via socket
-            socketClient.emit('client:edit_message', {
-                messageId,
-                content: encryptedPayload
-            });
-
-            // Optimistic: update UI and caches immediately (we know the plaintext)
-            const editedMsg = { ...original, content: newPlaintext, editedAt: new Date().toISOString(), contentType: 'TEXT' };
-            setMessages(prev => prev.map(m => m.id === messageId ? editedMsg : m));
-            decryptedCacheRef.current.set(messageId, newPlaintext);
-
-            // Update local IndexedDB copy
-            signalStoreAdapter.saveLocalMessage(editedMsg).catch(e => {
-                console.error('Failed to update local message cache after edit', e);
-            });
-        } catch (err) {
-            console.error('Edit failed:', err);
-            setError(err.message);
-        }
+        await editSecureMessageCore(messageId, newPlaintext, {
+            conversationId, messages, currentUserId, isGroup,
+            directHasSession, directEncrypt, encryptGroupMessage,
+            decryptedCacheRef, setMessages, setError,
+        });
     }, [conversationId, messages, currentUserId, isGroup, directHasSession, directEncrypt, encryptGroupMessage]);
 
-    // --- Delete Message ---
+    // --- Delete (delegates to messageActions.js) ---
     const deleteSecureMessage = useCallback(async (messageId) => {
-        if (!conversationId) return;
-
-        const original = messages.find(m => m.id === messageId);
-        if (!original) throw new Error('Message not found in current view');
-        if (original.senderId !== currentUserId) throw new Error('You can only delete your own messages');
-
-        try {
-            // Send via socket
-            socketClient.emit('client:delete_message', { messageId });
-
-            // Optimistic: update UI immediately
-            setMessages(prev => prev.map(m => m.id === messageId
-                ? { ...m, deleted: true, content: 'Message deleted' }
-                : m
-            ));
-            decryptedCacheRef.current.delete(messageId);
-
-            // Remove from local IndexedDB
-            signalStoreAdapter.deleteLocalMessage(messageId).catch(e => {
-                console.error('Failed to remove local message cache after delete', e);
-            });
-        } catch (err) {
-            console.error('Delete failed:', err);
-            setError(err.message);
-        }
+        await deleteSecureMessageCore(messageId, {
+            conversationId, messages, currentUserId,
+            decryptedCacheRef, setMessages, setError,
+        });
     }, [conversationId, messages, currentUserId]);
 
-    // Socket Setup
+    // --- Typing ---
     const setTypingStatus = useCallback((isTyping) => {
         if (!conversationId) return;
         socketClient.emit('typing', { conversationId, typing: isTyping });
     }, [conversationId]);
 
+    // --- Socket Listeners ---
     useEffect(() => {
         if (!conversationId) { setMessages([]); return; }
 
@@ -369,18 +208,14 @@ export function useMessages(conversation, currentUserId) {
             socketClient.on('message', handleIncomingMessage),
             socketClient.on('message:edited', async (editedMessage) => {
                 if (editedMessage.conversationId !== conversationId) return;
-                // If we sent the edit ourselves, we already handled it optimistically
                 if (editedMessage.senderId === currentUserId) return;
 
                 try {
-                    // Decrypt the new ciphertext
                     let plaintext;
                     if (isGroup) {
                         plaintext = await decryptGroupMessage(editedMessage.senderId, conversationId, editedMessage.content);
-                    } else if (directHasSession) {
-                        plaintext = await directDecrypt(editedMessage.content);
                     } else {
-                        throw new Error('Cannot decrypt edited message: no session was established or it got lost.');
+                        plaintext = await directDecrypt(editedMessage.content);
                     }
 
                     const decryptedEdit = {
@@ -389,7 +224,6 @@ export function useMessages(conversation, currentUserId) {
                     decryptedCacheRef.current.set(editedMessage.id, plaintext);
                     setMessages(prev => prev.map(m => m.id === editedMessage.id ? decryptedEdit : m));
 
-                    // Update local IndexedDB copy
                     signalStoreAdapter.saveLocalMessage(decryptedEdit).catch(e => {
                         console.error('Failed to update local cache for edited message', e);
                     });
@@ -400,12 +234,12 @@ export function useMessages(conversation, currentUserId) {
             socketClient.on('message:deleted', ({ id, conversationId: evtConvId }) => {
                 if (evtConvId === conversationId) {
                     setMessages(prev => prev.map(m => m.id === id ? { ...m, deleted: true, content: 'Message deleted' } : m));
-                    // Also remove from local IndexedDB
                     signalStoreAdapter.deleteLocalMessage(id).catch(e => {
                         console.error('Failed to remove local cache for deleted message', e);
                     });
                 }
             }),
+            socketClient.on('messages.read', handleMessagesRead),
             socketClient.on('typing', ({ userId, typing }) => {
                 setTypingUsers(prev => {
                     const newSet = new Set(prev);
@@ -442,6 +276,6 @@ export function useMessages(conversation, currentUserId) {
         messages, loading, error, hasOlder, loadOlder,
         sendSecureMessage, editSecureMessage, deleteSecureMessage,
         setTypingStatus, typingUsers,
-        isSessionReady: isReady // Expose combined ready state
+        isSessionReady: isReady
     };
 }

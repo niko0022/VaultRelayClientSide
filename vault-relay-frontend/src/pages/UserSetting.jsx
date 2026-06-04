@@ -1,7 +1,146 @@
-import React from 'react';
-import SideNavBar from '../components/SideNavBar';
+import { useState } from 'react';
+import SideNavBar from '../components/Shared/SideNavBar';
+import useAuth from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { getAvatarUploadUrl, completeAvatarUpload, deleteAvatar, updateProfile } from '../services/authService';
+
+function EditableField({ label, fieldKey, currentValue, onSave }) {
+    const [isEditing, setIsEditing] = useState(false);
+    const [newValue, setNewValue] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+
+    const handleSave = async () => {
+        if (!newValue.trim()) {
+            setIsEditing(false);
+            return;
+        }
+        setIsSaving(true);
+        try {
+            await onSave(fieldKey, newValue);
+            setIsEditing(false);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <>
+            <label className="block text-xs font-medium text-on-surface-variant uppercase tracking-wider pt-2">{label}</label>
+            <div className="flex gap-2">
+                <input
+                    className="w-full font-body bg-surface-container-lowest border-none rounded-lg p-3 text-on-surface focus:ring-1 focus:outline-none focus:ring-primary transition-all disabled:opacity-50"
+                    type="text"
+                    value={isEditing ? newValue : (currentValue || '')}
+                    onChange={(e) => setNewValue(e.target.value)}
+                    readOnly={!isEditing}
+                    disabled={isSaving}
+                />
+                {isEditing ? (
+                    <button
+                        onClick={handleSave}
+                        disabled={isSaving}
+                        className="bg-primary/20 px-4 rounded-lg text-primary text-sm hover:bg-primary/30 font-bold transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center min-w-[80px]"
+                    >
+                        {isSaving ? <span className="material-symbols-outlined animate-spin text-[18px]">autorenew</span> : "Save"}
+                    </button>
+                ) : (
+                    <button
+                        onClick={() => { setNewValue(currentValue || ''); setIsEditing(true); }}
+                        className="bg-surface-container-high px-4 rounded-lg text-primary text-sm hover:bg-surface-container-highest font-bold transition-colors cursor-pointer min-w-[80px]"
+                    >
+                        Edit
+                    </button>
+                )}
+            </div>
+        </>
+    );
+}
 
 export default function UserSetting() {
+    const { user, checkAuth, logout, nukeAccount } = useAuth();
+    const [avatarUploading, setAvatarUploading] = useState(false);
+    const navigate = useNavigate();
+
+    const handleSaveProfile = async (fieldKey, value) => {
+        try {
+            await updateProfile({ [fieldKey]: value });
+            await checkAuth(); // Refresh global state
+        } catch (err) {
+            console.error(`${fieldKey} update failed`, err);
+            alert(err.message);
+            throw err;
+        }
+    };
+
+    const handleLogout = async () => {
+        if (!window.confirm("Are you sure you want to logout?")) return;
+        try {
+            await logout();
+            navigate("/login");
+        } catch (err) {
+            alert("Logout failed: " + err.message);
+        }
+    };
+
+    const handleNukeAccount = async () => {
+        const confirm1 = window.confirm("WARNING: This will permanently delete your account, all friends, and all messages. Are you absolutely sure?");
+        if (!confirm1) return;
+        const confirm2 = window.prompt("Type 'DELETE' to confirm");
+        if (confirm2 !== "DELETE") return;
+
+        try {
+            await nukeAccount();
+            navigate("/register");
+        } catch (err) {
+            alert("Account deletion failed: " + err.message);
+        }
+    };
+
+    const handleAvatarUpload = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setAvatarUploading(true);
+        try {
+            const { uploadUrl, key } = await getAvatarUploadUrl({
+                contentType: file.type,
+                originalName: file.name
+            });
+
+            const uploadRes = await fetch(uploadUrl, {
+                method: 'PUT',
+                body: file,
+                headers: {
+                    'Content-Type': file.type
+                }
+            });
+
+            if (!uploadRes.ok) throw new Error('Failed to upload image to S3');
+
+            await completeAvatarUpload({ key });
+            await checkAuth(); // refresh the user
+        } catch (err) {
+            console.error("Avatar upload failed", err);
+            alert("Failed to upload avatar: " + err.message);
+        } finally {
+            setAvatarUploading(false);
+            e.target.value = '';
+        }
+    };
+
+    const handleAvatarRemove = async () => {
+        if (!window.confirm("Remove your avatar?")) return;
+        setAvatarUploading(true);
+        try {
+            await deleteAvatar();
+            await checkAuth();
+        } catch (err) {
+            console.error("Avatar removal failed", err);
+            alert("Failed to remove avatar.");
+        } finally {
+            setAvatarUploading(false);
+        }
+    };
     return (
         <div className="bg-surface text-on-surface font-body h-screen flex overflow-hidden selection:bg-primary-container selection:text-on-primary-container">
             <SideNavBar />
@@ -25,26 +164,44 @@ export default function UserSetting() {
                                 <span className="text-[10px] uppercase tracking-widest text-primary px-2 py-1 bg-primary/10 rounded">Active Node</span>
                             </div>
                             <div className="flex flex-col md:flex-row gap-8 items-start">
-                                <div className="relative group">
-                                    <div className="w-32 h-32 rounded-full overflow-hidden border-2 border-primary/30 group-hover:border-primary transition-colors cursor-pointer">
-                                        <img className="w-full h-full object-cover" alt="Technical professional headshot" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCOfVwkiJORRRrqynJpL3C5fTHl2TUohOaxmeIOwHaz5LeHmFyvM9xdWJt_C20HuWvujA98MwRYpbwLgkX7A71P9ieUE6Suh2_YOAymWRMnf8XKY995G2IGVM7IlBdynlkyQXDJHOBar5w8gZo39930sEbcx4krj_16MIoZpKChLZ7_soxylu3bJXpTYADovL4nMnkrF8I9bGe4p6UaYtdnwdntwo5KWgKMWc_EXEW0RRwFUgbPmqrzZAHO_SV_FUyLU9XTGy1y8Zrl" />
+                                <div className="flex flex-col items-center gap-2">
+                                    <div className="relative group">
+                                        <div className="w-32 h-32 rounded-full overflow-hidden border-2 border-primary/30 group-hover:border-primary transition-colors bg-surface-container-highest flex items-center justify-center">
+                                            {user?.avatarUrl ? (
+                                                <img className="w-full h-full object-cover" alt="User avatar" src={user.avatarUrl} />
+                                            ) : (
+                                                <span className="material-symbols-outlined text-5xl text-on-surface-variant">person</span>
+                                            )}
+                                            {avatarUploading && (
+                                                <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
+                                                    <span className="material-symbols-outlined animate-spin text-primary">autorenew</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <label className="absolute bottom-0 right-0 p-2 bg-primary-container text-on-primary-container rounded-full shadow-lg hover:scale-110 transition-transform cursor-pointer">
+                                            <span className="material-symbols-outlined text-sm">edit</span>
+                                            <input type="file" className="hidden" accept="image/*" onChange={handleAvatarUpload} disabled={avatarUploading} />
+                                        </label>
                                     </div>
-                                    <button className="absolute bottom-0 right-0 p-2 bg-primary-container text-on-primary-container rounded-full shadow-lg hover:scale-110 transition-transform cursor-pointer">
-                                        <span className="material-symbols-outlined text-sm">edit</span>
-                                    </button>
+                                    {user?.avatarUrl && (
+                                        <button
+                                            onClick={handleAvatarRemove}
+                                            disabled={avatarUploading}
+                                            className="text-[10px] text-error/70 hover:text-error uppercase tracking-widest font-bold transition-colors cursor-pointer"
+                                        >
+                                            Remove Avatar
+                                        </button>
+                                    )}
                                 </div>
                                 <div className="flex-1 w-full space-y-6">
                                     <div className="space-y-2">
                                         <label className="block text-xs font-medium text-on-surface-variant uppercase tracking-wider">Email</label>
                                         <div className="flex gap-2">
-                                            <input className="w-full font-body bg-surface-container-lowest border-none rounded-lg p-3 text-on-surface focus:ring-1 focus:outline-none focus:ring-primary transition-all" type="email" defaultValue="operator.04@vault-relay.net" />
+                                            <input className="w-full font-body bg-surface-container-lowest border-none rounded-lg p-3 text-on-surface focus:ring-1 focus:outline-none focus:ring-primary transition-all" type="email" defaultValue={user?.email || ''} readOnly />
                                             <button className="bg-surface-container-high px-4 rounded-lg text-primary text-sm hover:bg-surface-container-highest font-bold transition-colors cursor-pointer">Update</button>
                                         </div>
-                                        <label className="block text-xs font-medium text-on-surface-variant uppercase tracking-wider pt-2">Password</label>
-                                        <div className="flex gap-2">
-                                            <input className="w-full font-body bg-surface-container-lowest border-none rounded-lg p-3 text-on-surface focus:ring-1 focus:outline-none focus:ring-primary transition-all" type="email" defaultValue="operator.04@vault-relay.net" />
-                                            <button className="bg-surface-container-high px-4 rounded-lg text-primary text-sm hover:bg-surface-container-highest font-bold transition-colors cursor-pointer">Update</button>
-                                        </div>
+                                        <EditableField label="Username" fieldKey="username" currentValue={user?.username} onSave={handleSaveProfile} />
+                                        <EditableField label="Display Name" fieldKey="displayName" currentValue={user?.displayName} onSave={handleSaveProfile} />
                                     </div>
                                 </div>
                             </div>
@@ -88,7 +245,7 @@ export default function UserSetting() {
                                             <div className="text-xs text-on-surface-variant">Last active: 4 hours ago • Paris, FR</div>
                                         </div>
                                     </div>
-                                    <button className="opacity-0 group-hover:opacity-100 p-2 text-error hover:bg-error/10 rounded transition-all cursor-pointer">
+                                    <button onClick={handleLogout} className="opacity-0 group-hover:opacity-100 p-2 text-error hover:bg-error/10 rounded transition-all cursor-pointer">
                                         <span className="material-symbols-outlined text-sm">logout</span>
                                     </button>
                                 </div>
@@ -108,7 +265,7 @@ export default function UserSetting() {
                                     <p className="text-on-error-container font-medium">Irreversibly delete account, cryptographic keys, and all message data.</p>
                                     <p className="text-xs text-on-error-container/60 mt-2">Warning: This action triggers a recursive wipe across all relay nodes. Data recovery is mathematically impossible once initiated.</p>
                                 </div>
-                                <button className="px-8 py-4 bg-error text-on-error rounded-lg font-bold uppercase tracking-widest text-xs hover:bg-error/80 hover:scale-[1.02] active:scale-95 transition-all shadow-[0_10px_30px_rgba(255,180,171,0.2)] cursor-pointer">
+                                <button onClick={handleNukeAccount} className="px-8 py-4 bg-error text-on-error rounded-lg font-bold uppercase tracking-widest text-xs hover:bg-error/80 hover:scale-[1.02] active:scale-95 transition-all shadow-[0_10px_30px_rgba(255,180,171,0.2)] cursor-pointer">
                                     Nuke Everything
                                 </button>
                             </div>

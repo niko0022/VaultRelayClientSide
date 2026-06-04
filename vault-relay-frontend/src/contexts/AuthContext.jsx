@@ -1,6 +1,8 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { login as authLogin, logout as authLogout, getMe } from '../services/authService';
+import { login as authLogin, logout as authLogout, getMe, deleteAccount } from '../services/authService';
 import { socketClient } from '../services/socketClient';
+import { signalStoreAdapter } from '../lib/signal/SignalStoreAdapter';
+import { logEvent, clearEvents } from '../lib/eventLog';
 
 const AuthContext = createContext();
 
@@ -33,6 +35,7 @@ export function AuthProvider({ children }) {
     const handleLogin = async (credentials) => {
         await authLogin(credentials);
         await checkAuth();
+        logEvent('AUTH', 'User authenticated successfully');
     };
 
     /**
@@ -47,6 +50,20 @@ export function AuthProvider({ children }) {
         } finally {
             socketClient.reset();
             setUser(null);
+            clearEvents();
+        }
+    };
+
+    const nukeAccount = async () => {
+        try {
+            await deleteAccount();
+            await signalStoreAdapter.deleteAllLocalData();
+            localStorage.clear();
+            socketClient.disconnect();
+            setUser(null);
+            clearEvents();
+        } catch (err) {
+            console.error('Failed to nuke account:', err);
         }
     };
 
@@ -56,6 +73,7 @@ export function AuthProvider({ children }) {
         login: handleLogin,
         logout: handleLogout,
         checkAuth,
+        nukeAccount,
     };
 
     return (

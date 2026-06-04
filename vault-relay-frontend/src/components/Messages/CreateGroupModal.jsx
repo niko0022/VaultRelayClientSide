@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useFriends } from '../hooks/useFriends';
-import { chatService } from '../services/chatService';
+import { useFriends } from '../../hooks/useFriends';
+import { chatService } from '../../services/chatService';
 
 export default function CreateGroupModal({ onClose }) {
     const { friends, loading } = useFriends();
