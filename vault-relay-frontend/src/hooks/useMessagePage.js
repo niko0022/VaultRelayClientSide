@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useConversations } from './useConversations';
 import { useMessages } from './useMessages';
-import { useMessageActions } from './useMessageActions';
+import { useMessageActions } from '../components/Messages/MessageContextMenu';
 import { chatService } from '../services/chatService';
 
 export function useMessagePage(user) {
