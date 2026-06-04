@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import prettyBytes from 'pretty-bytes';
-import SideNavBar from '../components/SideNavBar';
+import SideNavBar from '../components/Shared/SideNavBar';
 import { signalStoreAdapter } from '../lib/signal/SignalStoreAdapter';
 import { chatService } from '../services/chatService';
 import { getEvents, onEventsChange } from '../lib/eventLog';
