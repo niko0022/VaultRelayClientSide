@@ -6,6 +6,7 @@ import { useGroupSignalSession } from './useGroupSignalSession';
 import { signalStoreAdapter } from '../lib/signal/SignalStoreAdapter';
 import { processMessages as processMessagesCore } from './messageProcessing';
 import { sendSecureMessage as sendSecureMessageCore } from './messageSending';
+import { sendReaction } from './reactionSending';
 import { editSecureMessage as editSecureMessageCore, deleteSecureMessage as deleteSecureMessageCore } from './messageActions';
 
 // Helper to deduce remote user in a 1-to-1 chat
@@ -18,6 +19,7 @@ function getDirectRemoteUserId(conversation, currentUserId) {
 
 export function useMessages(conversation, currentUserId) {
     const [messages, setMessages] = useState([]);
+    const [reactions, setReactions] = useState({});
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [nextCursor, setNextCursor] = useState(null);
@@ -37,7 +39,8 @@ export function useMessages(conversation, currentUserId) {
     // -- Group Session API --
     const {
         isReady: groupReady, establishGroupSessions, generateGroupDistributionMap,
-        processGroupDistribution, encryptGroupMessage, decryptGroupMessage
+        processGroupDistribution, encryptGroupMessage, decryptGroupMessage,
+        clearCiphersCache
     } = useGroupSignalSession(currentUserId);
 
     const isReady = directReady && groupReady;
@@ -73,13 +76,31 @@ export function useMessages(conversation, currentUserId) {
         initSession();
     }, [conversation, isReady, currentUserId, remoteDirectUserId, directHasSession, isGroup, establishGroupSessions, directEstablish]);
 
+    const onReactionUpdate = useCallback(({ messageId, userId, emoji, isRemove }) => {
+        setReactions(prev => {
+            const list = prev[messageId] || [];
+            let newList;
+            if (isRemove) {
+                newList = list.filter(r => !(r.userId === userId && r.emoji === emoji));
+            } else {
+                if (list.some(r => r.userId === userId && r.emoji === emoji)) {
+                    newList = list;
+                } else {
+                    newList = [...list, { messageId, userId, emoji }];
+                }
+            }
+            return { ...prev, [messageId]: newList };
+        });
+    }, []);
+
     // --- Decryption Routing (delegates to messageProcessing.js) ---
     const processMessages = useCallback(async (rawMessages, localMap = new Map()) => {
         return processMessagesCore(rawMessages, localMap, {
             isReady, isGroup, conversationId, currentUserId,
             decryptedCacheRef, directDecrypt, decryptGroupMessage, processGroupDistribution,
+            onReactionUpdate,
         });
-    }, [isReady, isGroup, conversationId, currentUserId, directHasSession, decryptGroupMessage, directDecrypt, processGroupDistribution]);
+    }, [isReady, isGroup, conversationId, currentUserId, directHasSession, decryptGroupMessage, directDecrypt, processGroupDistribution, onReactionUpdate]);
 
     const processMessagesRef = useRef(processMessages);
     useEffect(() => { processMessagesRef.current = processMessages; }, [processMessages]);
@@ -95,6 +116,15 @@ export function useMessages(conversation, currentUserId) {
             // Fetch local plaintext cache BEFORE processing server messages
             const localMsgs = await signalStoreAdapter.getLocalMessages(conversationId);
             const localMap = new Map(localMsgs.map(m => [m.id, m]));
+
+            // Load reactions from IndexedDB for conversation
+            const list = await signalStoreAdapter.getReactionsForConversation(conversationId);
+            const map = {};
+            list.forEach(rec => {
+                if (!map[rec.messageId]) map[rec.messageId] = [];
+                map[rec.messageId].push(rec);
+            });
+            setReactions(map);
 
             const processedMessages = await processMessages(data.messages, localMap);
 
@@ -131,6 +161,64 @@ export function useMessages(conversation, currentUserId) {
             return msg;
         }));
     }
+
+    // --- Reactions sending ---
+    const lastReactionTimeRef = useRef(0);
+    const REACTION_COOLDOWN_MS = 1500;
+
+    const reactToMessage = useCallback(async (messageId, emoji) => {
+        const now = Date.now();
+        if (now - lastReactionTimeRef.current < REACTION_COOLDOWN_MS) {
+            console.warn('[Reaction] Rate limited');
+            return;
+        }
+        lastReactionTimeRef.current = now;
+
+        const targetMessage = messages.find(m => m.id === messageId);
+        if (!targetMessage) return;
+
+        const list = reactions[messageId] || [];
+        const existing = list.find(r => r.userId === currentUserId && r.emoji === emoji);
+        const isRemove = !!existing;
+
+        try {
+            // Optimistic update
+            setReactions(prev => {
+                const curList = prev[messageId] || [];
+                let newList;
+                if (isRemove) {
+                    newList = curList.filter(r => !(r.userId === currentUserId && r.emoji === emoji));
+                } else {
+                    newList = [...curList, { messageId, userId: currentUserId, emoji }];
+                }
+                return { ...prev, [messageId]: newList };
+            });
+
+            await sendReaction(emoji, targetMessage, isRemove, {
+                conversationId, isGroup, conversation, currentUserId,
+                directHasSession, directEncrypt, directEstablish, remoteDirectUserId,
+                encryptGroupMessage, generateGroupDistributionMap, distributedRef
+            });
+        } catch (err) {
+            console.error('Failed to react to message:', err);
+            // Revert optimistic update
+            setReactions(prev => {
+                const curList = prev[messageId] || [];
+                let newList;
+                if (isRemove) {
+                    newList = [...curList, { messageId, userId: currentUserId, emoji }];
+                } else {
+                    newList = curList.filter(r => !(r.userId === currentUserId && r.emoji === emoji));
+                }
+                return { ...prev, [messageId]: newList };
+            });
+            alert(err.message || 'Failed to send reaction');
+        }
+    }, [
+        messages, reactions, conversationId, isGroup, conversation, currentUserId,
+        directHasSession, directEncrypt, directEstablish, remoteDirectUserId,
+        encryptGroupMessage, generateGroupDistributionMap
+    ]);
 
     // --- Sending (delegates to messageSending.js) ---
     const sendSecureMessage = useCallback(async (plaintext, attachment = null) => {
@@ -175,6 +263,7 @@ export function useMessages(conversation, currentUserId) {
         // Reset per-conversation state on conversation change
         distributedRef.current = false;
         decryptedCacheRef.current = new Map();
+        clearCiphersCache();
 
         socketClient.emit('join_conversation', { conversationId }, () => { });
 
@@ -242,7 +331,7 @@ export function useMessages(conversation, currentUserId) {
             unsubs.forEach(unsub => unsub());
             setTypingUsers(new Set());
         };
-    }, [conversationId, currentUserId]);
+    }, [conversationId, currentUserId, clearCiphersCache]);
 
     // Initial message load
     useEffect(() => {
@@ -253,6 +342,8 @@ export function useMessages(conversation, currentUserId) {
         messages, loading, error, hasOlder, loadOlder,
         sendSecureMessage, editSecureMessage, deleteSecureMessage,
         setTypingStatus, typingUsers,
-        isSessionReady: isReady
+        isSessionReady: isReady,
+        reactions,
+        reactToMessage
     };
 }
