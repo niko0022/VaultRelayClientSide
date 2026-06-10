@@ -1,15 +1,22 @@
 import { formatTime } from '../../utils/timeFormat';
 import AttachmentViewer from './AttachmentViewer';
+import ReactionPicker from './ReactionPicker';
 
-export default function MessageBubble({ msg, isMe, isEditing, handleContextMenu }) {
+export default function MessageBubble({ msg, isMe, isEditing, handleContextMenu, reactions = [], onReact, currentUserId }) {
     const isDeleted = msg.deleted;
     const senderName = msg.sender?.displayName || msg.sender?.username;
 
     return (
         <div
-            className={`flex gap-3 w-full ${isMe ? 'justify-end' : 'justify-start'}`}
+            className={`flex gap-3 w-full group/row relative ${isMe ? 'justify-end' : 'justify-start'}`}
             onContextMenu={(e) => handleContextMenu(e, msg)}
         >
+            {/* Hover Reaction Picker */}
+            {!isDeleted && !msg.isPending && (
+                <div className={`absolute -top-3.5 z-30 opacity-0 group-hover/row:opacity-100 focus-within:opacity-100 transition-all duration-200 ${isMe ? 'right-4' : 'left-12'}`}>
+                    <ReactionPicker onReact={onReact} />
+                </div>
+            )}
             {/* Left side avatar for incoming messages */}
             {!isMe && (
                 <div className="w-8 h-8 rounded-full overflow-hidden bg-surface-container-highest shrink-0 flex items-center justify-center mt-1">
@@ -19,7 +26,7 @@ export default function MessageBubble({ msg, isMe, isEditing, handleContextMenu 
                             className="w-full h-full object-cover"
                         />
                     ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-primary-container text-on-primary-container">
+                        <div className="w-full h-full flex items-center justify-center bg-surface-container-highest text-on-surface-variant">
                             <span className="material-symbols-outlined text-[18px]">person</span>
                         </div>
                     )}
@@ -55,6 +62,37 @@ export default function MessageBubble({ msg, isMe, isEditing, handleContextMenu 
                         </>
                     )}
                 </div>
+
+                {/* REACTION PILLS */}
+                {!isDeleted && reactions && reactions.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-1 select-none">
+                        {Object.entries(
+                            reactions.reduce((acc, r) => {
+                                if (!acc[r.emoji]) acc[r.emoji] = [];
+                                acc[r.emoji].push(r.userId);
+                                return acc;
+                            }, {})
+                        ).map(([emoji, userIds]) => {
+                            const hasReacted = userIds.includes(currentUserId);
+                            return (
+                                <button
+                                    key={emoji}
+                                    onClick={() => onReact(emoji)}
+                                    className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium transition-all cursor-pointer ${
+                                        hasReacted
+                                            ? 'bg-primary/20 text-primary border border-primary/35 shadow-[0_0_8px_rgba(0,229,255,0.05)]'
+                                            : 'bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest border border-white/5'
+                                    }`}
+                                    title={`${userIds.length} reaction(s)`}
+                                >
+                                    <span>{emoji}</span>
+                                    <span className="text-[10px]">{userIds.length}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
+
                 <div className={`flex items-center gap-2 mt-1 ${isMe ? 'flex-row-reverse' : ''}`}>
                     <span className="text-[10px] text-on-surface-variant/60">{formatTime(msg.createdAt)}</span>
                     {msg.editedAt && !isDeleted && (
@@ -94,7 +132,7 @@ export default function MessageBubble({ msg, isMe, isEditing, handleContextMenu 
                                                     className="w-full h-full object-cover"
                                                 />
                                             ) : (
-                                                <div className="w-full h-full flex items-center justify-center bg-primary-container text-on-primary-container">
+                                                <div className="w-full h-full flex items-center justify-center bg-surface-container-highest text-on-surface-variant">
                                                     <span className="material-symbols-outlined text-[10px]">person</span>
                                                 </div>
                                             )}
