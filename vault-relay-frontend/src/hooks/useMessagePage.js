@@ -56,7 +56,9 @@ export function useMessagePage(user) {
         deleteSecureMessage,
         setTypingStatus,
         typingUsers,
-        isSessionReady
+        isSessionReady,
+        reactions,
+        reactToMessage
     } = useMessages(activeConv, user?.id);
 
     const messages = rawMessages.map(msg => {
@@ -192,6 +194,7 @@ export function useMessagePage(user) {
         composerText, setComposerText, menuOpen, setMenuOpen, showGroupModal, setShowGroupModal, selectedFile, setSelectedFile,
         editingMessage, contextMenu, handleContextMenu, handleEditClick, handleDeleteClick, handleCloseMenu, cancelEdit,
         messagesEndRef,
-        handleTextChange, handleSend, handleKeyDown, handleDeleteConversation
+        handleTextChange, handleSend, handleKeyDown, handleDeleteConversation,
+        reactions, reactToMessage
     };
 }
