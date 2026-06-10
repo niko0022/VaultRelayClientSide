@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
+import EmojiPickerButton from './EmojiPickerButton';
 
 export default function MessageComposer({
     editingMessage,
@@ -10,9 +11,34 @@ export default function MessageComposer({
     setComposerText,
     handleTextChange,
     handleKeyDown,
-    handleSend
+    handleSend,
+    isBlocked = false,
+    blockedById = null,
+    currentUserId = null
 }) {
     const fileInputRef = useRef(null);
+    const textareaRef = useRef(null);
+
+    const handleEmojiSelect = (emoji) => {
+        if (!textareaRef.current) {
+            setComposerText(prev => prev + emoji);
+            return;
+        }
+        const textarea = textareaRef.current;
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const text = textarea.value;
+        const before = text.substring(0, start);
+        const after = text.substring(end, text.length);
+
+        setComposerText(before + emoji + after);
+
+        // Put focus back and place cursor after the emoji
+        setTimeout(() => {
+            textarea.focus();
+            textarea.selectionStart = textarea.selectionEnd = start + emoji.length;
+        }, 0);
+    };
 
     // --- Voice Recording State ---
     const [isRecording, setIsRecording] = useState(false);
@@ -121,12 +147,17 @@ export default function MessageComposer({
             <div className="max-w-4xl mx-auto flex items-end gap-3 md:gap-4">
                 <div className={`flex-1 bg-surface-container-lowest rounded-xl flex flex-col p-1 transition-all border ${editingMessage ? 'border-primary/50 shadow-[0_0_15px_rgba(0,229,255,0.1)]' : 'border-surface-container-highest'} focus-within:border-primary/50 focus-within:shadow-[0_0_15px_rgba(0,229,255,0.1)]`}>
                     <textarea
+                        ref={textareaRef}
                         value={composerText}
                         onChange={handleTextChange}
                         onKeyDown={handleKeyDown}
-                        disabled={!isSessionReady || isRecording}
+                        disabled={!isSessionReady || isRecording || isBlocked}
                         className="w-full bg-transparent border-none text-on-surface text-[15px] py-3 px-4 focus:ring-0 focus:outline-none resize-none max-h-48 scrollbar-hide placeholder:text-on-surface-variant/50 disabled:opacity-50"
-                        placeholder={editingMessage ? "Edit your message..." : (isSessionReady ? "Type an encrypted message..." : "Waiting for secure connection...")}
+                        placeholder={
+                            isBlocked
+                                ? (blockedById === currentUserId ? "You have blocked this user. Unblock to send messages." : "You cannot reply to this conversation.")
+                                : (editingMessage ? "Edit your message..." : (isSessionReady ? "Type an encrypted message..." : "Waiting for secure connection..."))
+                        }
                         rows="1"
                         style={{ minHeight: '44px' }}
                     ></textarea>
@@ -134,7 +165,8 @@ export default function MessageComposer({
                         <div className="flex gap-0.5">
                             <button
                                 onClick={() => fileInputRef.current?.click()}
-                                className="p-2 text-on-surface-variant hover:text-primary transition-colors cursor-pointer rounded-lg hover:bg-white/5"
+                                disabled={isBlocked}
+                                className="p-2 text-on-surface-variant hover:text-primary transition-colors cursor-pointer rounded-lg hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed"
                             >
                                 <span className="material-symbols-outlined text-xl">attach_file</span>
                             </button>
@@ -150,21 +182,22 @@ export default function MessageComposer({
                             />
                             <button
                                 onClick={startRecording}
-                                disabled={!isSessionReady || !!editingMessage}
+                                disabled={!isSessionReady || !!editingMessage || isBlocked}
                                 className={`p-2 transition-colors cursor-pointer rounded-lg hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed ${isRecording ? 'text-error animate-pulse' : 'text-on-surface-variant hover:text-primary'}`}
                             >
                                 <span className="material-symbols-outlined text-xl">
                                     {isRecording ? 'stop_circle' : 'mic'}
                                 </span>
                             </button>
-                            <button className="p-2 text-on-surface-variant hover:text-primary transition-colors cursor-pointer rounded-lg hover:bg-white/5 hidden sm:block">
-                                <span className="material-symbols-outlined text-xl">mood</span>
-                            </button>
+                            <EmojiPickerButton
+                                disabled={!isSessionReady || isRecording || isBlocked}
+                                onEmojiSelect={handleEmojiSelect}
+                            />
                         </div>
                         <div className="flex items-center gap-2 px-1">
                             <button
                                 onClick={handleSend}
-                                disabled={!composerText.trim() && !selectedFile || !isSessionReady}
+                                disabled={!composerText.trim() && !selectedFile || !isSessionReady || isBlocked}
                                 className={`p-1.5 md:p-2 ${editingMessage ? 'text-secondary' : 'text-primary'} hover:bg-primary/10 rounded-lg transition-all active:scale-95 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed`}
                             >
                                 <span className="material-symbols-outlined text-[26px]" style={{ fontVariationSettings: "'FILL' 1" }}>
