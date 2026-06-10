@@ -41,10 +41,11 @@ function parseAttachmentEnvelope(plaintext, msgId) {
  * @param {object} deps - All required dependencies.
  * @returns {Promise<Array>} Processed messages ready for the UI.
  */
-export async function processMessages(rawMessages, localMap, {
-    isReady, isGroup, conversationId, currentUserId,
-    decryptedCacheRef, directDecrypt, decryptGroupMessage, processGroupDistribution,
-}) {
+export async function processMessages(rawMessages, localMap, deps) {
+    const {
+        isReady, isGroup, conversationId, currentUserId,
+        decryptedCacheRef, directDecrypt, decryptGroupMessage, processGroupDistribution,
+    } = deps;
     if (!isReady) return rawMessages;
 
     const processed = [];
@@ -72,6 +73,57 @@ export async function processMessages(rawMessages, localMap, {
             signalStoreAdapter.saveLocalMessage(cacheMsg).catch(e => console.error(e));
 
             // Key distribution is a system message — don't show it in the UI list
+            continue;
+        }
+
+        // Handle Encrypted Reactions
+        if (msg.contentType === 'SIGNAL_REACTION') {
+            if (localMap.has(msg.id)) {
+                continue;
+            }
+
+            if (msg.senderId !== currentUserId) {
+                if (decryptedCacheRef.current.has(msg.id)) {
+                    continue;
+                }
+                try {
+                    let plaintext;
+                    if (isGroup) {
+                        plaintext = await decryptGroupMessage(msg.senderId, conversationId, msg.content);
+                    } else {
+                        plaintext = await directDecrypt(msg.content);
+                    }
+                    decryptedCacheRef.current.set(msg.id, plaintext);
+
+                    const parsed = JSON.parse(plaintext);
+                    if (parsed && parsed.type === 'REACTION') {
+                        const { emoji, targetMessageId, isRemove } = parsed;
+
+                        if (isRemove) {
+                            await signalStoreAdapter.removeReaction(targetMessageId, msg.senderId, emoji);
+                        } else {
+                            await signalStoreAdapter.saveReaction(targetMessageId, conversationId, msg.senderId, emoji);
+                        }
+
+                        if (deps.onReactionUpdate) {
+                            deps.onReactionUpdate({
+                                messageId: targetMessageId,
+                                userId: msg.senderId,
+                                emoji,
+                                isRemove
+                            });
+                        }
+                    }
+                } catch (err) {
+                    console.error('Failed to decrypt reaction message:', msg.id, err);
+                }
+            }
+
+            // Cache it so we never try to decrypt this exact message ID again
+            const cacheMsg = { ...msg, conversationId, content: 'processed' };
+            signalStoreAdapter.saveLocalMessage(cacheMsg).catch(e => console.error(e));
+
+            // Reactions are processed but not displayed in the messages list
             continue;
         }
 
