@@ -1,5 +1,5 @@
 const DB_NAME = 'signal-storage';
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 
 const STORES = {
     SESSIONS: 'sessions',
@@ -10,7 +10,8 @@ const STORES = {
     SENDER_KEYS: 'senderKeys',
     CRYPTO_KEYS: 'cryptoKeys',  // Stores the non-extractable Master Wrapping Key
     KYBER_USED_COMBOS: 'kyberUsedCombos',  // Replay detection for Kyber pre-key usage
-    LOCAL_MESSAGES: 'localMessages' // WhatsApp-style sender history
+    LOCAL_MESSAGES: 'localMessages', // WhatsApp-style sender history
+    REACTIONS: 'reactions' // Stores decrypted reactions per message
 };
 
 const MWK_KEY = 'master_wrapping_key';
@@ -38,6 +39,10 @@ class SignalStoreAdapter {
                         if (storeName === STORES.LOCAL_MESSAGES) {
                             // Require an index to rapidly fetch messages per conversation
                             const store = db.createObjectStore(storeName, { keyPath: 'id' });
+                            store.createIndex('conversationId', 'conversationId', { unique: false });
+                        } else if (storeName === STORES.REACTIONS) {
+                            const store = db.createObjectStore(storeName, { keyPath: 'id' });
+                            store.createIndex('messageId', 'messageId', { unique: false });
                             store.createIndex('conversationId', 'conversationId', { unique: false });
                         } else {
                             db.createObjectStore(storeName);
@@ -439,6 +444,76 @@ class SignalStoreAdapter {
             const req = store.delete(messageId);
             req.onsuccess = () => resolve();
             req.onerror = () => reject(req.error);
+        });
+    }
+
+    async saveReaction(messageId, conversationId, userId, emoji) {
+        const id = `${messageId}:${userId}:${emoji}`;
+        const record = {
+            id,
+            messageId,
+            conversationId,
+            userId,
+            emoji,
+            createdAt: new Date().toISOString()
+        };
+        const db = await this.dbPromise;
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORES.REACTIONS, 'readwrite');
+            const store = tx.objectStore(STORES.REACTIONS);
+            const req = store.put(record);
+            req.onsuccess = () => resolve();
+            req.onerror = () => reject(req.error);
+        });
+    }
+
+    async removeReaction(messageId, userId, emoji) {
+        const id = `${messageId}:${userId}:${emoji}`;
+        const db = await this.dbPromise;
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORES.REACTIONS, 'readwrite');
+            const store = tx.objectStore(STORES.REACTIONS);
+            const req = store.delete(id);
+            req.onsuccess = () => resolve();
+            req.onerror = () => reject(req.error);
+        });
+    }
+
+    async getReactions(messageId) {
+        const db = await this.dbPromise;
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORES.REACTIONS, 'readonly');
+            const store = tx.objectStore(STORES.REACTIONS);
+            const index = store.index('messageId');
+            const req = index.getAll(messageId);
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = () => reject(req.error);
+        });
+    }
+
+    async getReactionsForConversation(conversationId) {
+        const db = await this.dbPromise;
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORES.REACTIONS, 'readonly');
+            const store = tx.objectStore(STORES.REACTIONS);
+            const index = store.index('conversationId');
+            const req = index.getAll(conversationId);
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = () => reject(req.error);
+        });
+    }
+
+    async clearReactions(conversationId) {
+        const db = await this.dbPromise;
+        const records = await this.getReactionsForConversation(conversationId);
+        if (records.length === 0) return;
+
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORES.REACTIONS, 'readwrite');
+            const store = tx.objectStore(STORES.REACTIONS);
+            records.forEach(rec => store.delete(rec.id));
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
         });
     }
 

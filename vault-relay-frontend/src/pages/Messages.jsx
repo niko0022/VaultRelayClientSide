@@ -15,12 +15,13 @@ export default function Messages() {
 
     const {
         conversations, selectedConversationId, selectConversation, convsLoading,
-        recipientName, recipientUser,
+        activeConv, recipientName, recipientUser,
         messages, messagesLoading, messagesError, hasOlder, loadOlder, isSessionReady,
         composerText, setComposerText, menuOpen, setMenuOpen, showGroupModal, setShowGroupModal, selectedFile, setSelectedFile,
         editingMessage, contextMenu, handleContextMenu, handleEditClick, handleDeleteClick, handleCloseMenu, cancelEdit,
         messagesEndRef,
-        handleTextChange, handleSend, handleKeyDown, handleDeleteConversation, typingLabel
+        handleTextChange, handleSend, handleKeyDown, handleDeleteConversation, typingLabel,
+        reactions, reactToMessage
     } = useMessagePage(user);
 
 
@@ -90,6 +91,9 @@ export default function Messages() {
                                         isMe={msg.senderId === user?.id}
                                         isEditing={editingMessage?.id === msg.id}
                                         handleContextMenu={handleContextMenu}
+                                        reactions={reactions[msg.id] || []}
+                                        onReact={(emoji) => reactToMessage(msg.id, emoji)}
+                                        currentUserId={user?.id}
                                     />
                                 ))}
                                 <div ref={messagesEndRef} />
@@ -121,6 +125,9 @@ export default function Messages() {
                                 handleTextChange={handleTextChange}
                                 handleKeyDown={handleKeyDown}
                                 handleSend={handleSend}
+                                isBlocked={activeConv?.isBlocked}
+                                blockedById={activeConv?.blockedById}
+                                currentUserId={user?.id}
                             />
                         </>
                     )}

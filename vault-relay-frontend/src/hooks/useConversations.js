@@ -111,6 +111,7 @@ export function useConversations() {
             }),
             socketClient.on('conversation.removed', ({ conversationId }) => {
                 signalStoreAdapter.clearLocalMessages(conversationId).catch(err => console.error('Failed to wipe local messages', err));
+                signalStoreAdapter.clearReactions(conversationId).catch(err => console.error('Failed to wipe local reactions', err));
 
                 setConversations(prev => {
                     const targetConv = prev.find(c => c.id === conversationId);
@@ -172,6 +173,7 @@ export function useConversations() {
             socketClient.on('conversation.deleted', ({ conversationId, participants }) => {
                 // Instantly wipe E2EE data locally
                 signalStoreAdapter.clearLocalMessages(conversationId).catch(err => console.error('Failed to wipe local messages', err));
+                signalStoreAdapter.clearReactions(conversationId).catch(err => console.error('Failed to wipe local reactions', err));
                 if (participants && Array.isArray(participants)) {
                     participants.forEach(p => {
                         // Signal protocol addresses usually stringify to 'userId.deviceId'

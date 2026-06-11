@@ -249,6 +249,13 @@ export function useGroupSignalSession(currentUserId) {
         }
     }, []);
 
+    const clearCiphersCache = useCallback(() => {
+        ciphersRef.current.forEach(cipher => cipher.free());
+        ciphersRef.current.clear();
+        groupCiphersRef.current.forEach(cipher => cipher.free());
+        groupCiphersRef.current.clear();
+    }, []);
+
     return {
         isReady,
         error,
@@ -256,6 +263,7 @@ export function useGroupSignalSession(currentUserId) {
         generateGroupDistributionMap,
         processGroupDistribution,
         encryptGroupMessage,
-        decryptGroupMessage
+        decryptGroupMessage,
+        clearCiphersCache
     };
 }
