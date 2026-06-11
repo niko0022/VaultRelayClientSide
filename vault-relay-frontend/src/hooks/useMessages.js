@@ -49,15 +49,10 @@ export function useMessages(conversation, currentUserId) {
     const distributedRef = useRef(false);
     // Track message IDs already decrypted this session to avoid re-decrypting
     const decryptedCacheRef = useRef(new Map());
-    // Track whether initSession has triggered the first message load for this conversation
-    const initialLoadDoneRef = useRef(false);
 
     // --- Session Setup ---
     useEffect(() => {
         if (!conversation || !isReady) return;
-
-        // Reset for this conversation
-        initialLoadDoneRef.current = false;
 
         const initSession = async () => {
             try {
@@ -76,17 +71,10 @@ export function useMessages(conversation, currentUserId) {
                 console.error("Session Setup Error:", err);
                 setError(err.message);
             }
-
-            // For groups: load messages AFTER sessions are ready (sequential, no race)
-            // For direct: also load here to keep one unified path
-            if (!initialLoadDoneRef.current) {
-                initialLoadDoneRef.current = true;
-                loadMessages();
-            }
         };
 
         initSession();
-    }, [conversation, isReady, currentUserId, remoteDirectUserId, directHasSession, isGroup, establishGroupSessions, directEstablish, loadMessages]);
+    }, [conversation, isReady, currentUserId, remoteDirectUserId, directHasSession, isGroup, establishGroupSessions, directEstablish]);
 
     const onReactionUpdate = useCallback(({ messageId, userId, emoji, isRemove }) => {
         setReactions(prev => {
@@ -345,20 +333,9 @@ export function useMessages(conversation, currentUserId) {
         };
     }, [conversationId, currentUserId, clearCiphersCache]);
 
-    // Fallback: if the session setup effect re-fires and the ref is already true,
-    // we still need to handle the case where conversationId changes without initSession running.
-    // This covers edge cases like switching from a group to a direct chat.
+    // Initial message load
     useEffect(() => {
-        if (conversationId && isReady && !initialLoadDoneRef.current) {
-            // If initSession hasn't loaded messages yet (e.g. no conversation object), load now
-            const timer = setTimeout(() => {
-                if (!initialLoadDoneRef.current) {
-                    initialLoadDoneRef.current = true;
-                    loadMessages();
-                }
-            }, 2000); // Safety net — if initSession is still pending after 2s, load anyway
-            return () => clearTimeout(timer);
-        }
+        if (conversationId && isReady) loadMessages();
     }, [conversationId, isReady, loadMessages]);
 
     return {
