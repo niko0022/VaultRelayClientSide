@@ -97,116 +97,126 @@ export default function MessageComposer({
     const isAudioFile = selectedFile?.type?.startsWith('audio/');
 
     return (
-        <div className="p-4 md:p-6 bg-[#131313]/90 backdrop-blur-xl shrink-0 border-t border-white/5">
+        <div className="absolute bottom-6 left-8 right-8 z-20">
             {/* Edit mode banner */}
             {editingMessage && (
-                <div className="max-w-4xl mx-auto mb-2 flex items-center gap-3 px-4 py-2 bg-primary/10 border border-primary/20 rounded-lg">
-                    <span className="material-symbols-outlined text-primary text-[18px]">edit</span>
-                    <span className="text-xs text-primary font-medium flex-1 truncate">Editing message</span>
+                <div className="mb-2 flex items-center gap-3 px-4 py-2 bg-blue-50 border border-blue-200 rounded-2xl shadow-sm">
+                    <span className="material-symbols-outlined text-blue-500 text-[18px]">edit</span>
+                    <span className="text-xs text-blue-600 font-medium flex-1 truncate">Editing message</span>
                     <button
                         onClick={() => { cancelEdit(); setComposerText(''); }}
-                        className="p-1 text-on-surface-variant hover:text-error transition-colors cursor-pointer"
+                        className="p-1 text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
                     >
                         <span className="material-symbols-outlined text-[16px]">close</span>
                     </button>
                 </div>
             )}
+
             {/* Recording indicator */}
             {isRecording && (
-                <div className="max-w-4xl mx-auto mb-2 flex items-center gap-3 px-4 py-2 bg-error/10 border border-error/20 rounded-lg">
-                    <span className="w-2.5 h-2.5 bg-error rounded-full animate-pulse" />
-                    <span className="text-xs text-error font-medium flex-1">Recording… {formatTime(recordingTime)}</span>
+                <div className="mb-2 flex items-center gap-3 px-4 py-2 bg-red-50 border border-red-200 rounded-2xl shadow-sm">
+                    <span className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
+                    <span className="text-xs text-red-600 font-medium flex-1">Recording… {formatTime(recordingTime)}</span>
                     <button
                         onClick={stopRecording}
-                        className="p-1 text-on-surface-variant hover:text-error transition-colors cursor-pointer"
+                        className="p-1 text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
                     >
                         <span className="material-symbols-outlined text-[16px]">stop</span>
                     </button>
                 </div>
             )}
+
             {/* Attachment preview banner */}
             {selectedFile && !isRecording && (
-                <div className="max-w-4xl mx-auto mb-2 flex items-center gap-3 px-4 py-2 bg-secondary/10 border border-secondary/20 rounded-lg">
-                    <span className="material-symbols-outlined text-secondary text-[18px]">
+                <div className="mb-2 flex items-center gap-3 px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-2xl shadow-sm">
+                    <span className="material-symbols-outlined text-emerald-500 text-[18px]">
                         {isAudioFile ? 'mic' : 'attach_file'}
                     </span>
-                    <span className="text-xs text-secondary font-medium flex-1 truncate">{selectedFile.name}</span>
-                    <span className="text-[10px] text-on-surface-variant">
+                    <span className="text-xs text-emerald-600 font-medium flex-1 truncate">{selectedFile.name}</span>
+                    <span className="text-[10px] text-gray-400">
                         {selectedFile.size < 1024 * 1024
                             ? `${(selectedFile.size / 1024).toFixed(1)} KB`
                             : `${(selectedFile.size / (1024 * 1024)).toFixed(1)} MB`}
                     </span>
                     <button
                         onClick={() => setSelectedFile(null)}
-                        className="p-1 text-on-surface-variant hover:text-error transition-colors cursor-pointer"
+                        className="p-1 text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
                     >
                         <span className="material-symbols-outlined text-[16px]">close</span>
                     </button>
                 </div>
             )}
-            <div className="max-w-4xl mx-auto flex items-end gap-3 md:gap-4">
-                <div className={`flex-1 bg-surface-container-lowest rounded-xl flex flex-col p-1 transition-all border ${editingMessage ? 'border-primary/50 shadow-[0_0_15px_rgba(0,229,255,0.1)]' : 'border-surface-container-highest'} focus-within:border-primary/50 focus-within:shadow-[0_0_15px_rgba(0,229,255,0.1)]`}>
-                    <textarea
-                        ref={textareaRef}
-                        value={composerText}
-                        onChange={handleTextChange}
-                        onKeyDown={handleKeyDown}
-                        disabled={!isSessionReady || isRecording || isBlocked}
-                        className="w-full bg-transparent border-none text-on-surface text-[15px] py-3 px-4 focus:ring-0 focus:outline-none resize-none max-h-48 scrollbar-hide placeholder:text-on-surface-variant/50 disabled:opacity-50"
-                        placeholder={
-                            isBlocked
-                                ? (blockedById === currentUserId ? "You have blocked this user. Unblock to send messages." : "You cannot reply to this conversation.")
-                                : (editingMessage ? "Edit your message..." : (isSessionReady ? "Type an encrypted message..." : "Waiting for secure connection..."))
-                        }
-                        rows="1"
-                        style={{ minHeight: '44px' }}
-                    ></textarea>
-                    <div className="flex items-center justify-between px-2 pb-1.5 pt-1">
-                        <div className="flex gap-0.5">
-                            <button
-                                onClick={() => fileInputRef.current?.click()}
-                                disabled={isBlocked}
-                                className="p-2 text-on-surface-variant hover:text-primary transition-colors cursor-pointer rounded-lg hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed"
-                            >
-                                <span className="material-symbols-outlined text-xl">attach_file</span>
-                            </button>
-                            <input
-                                ref={fileInputRef}
-                                type="file"
-                                className="hidden"
-                                onChange={(e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) setSelectedFile(file);
-                                    e.target.value = ''; // reset so same file can be re-selected
-                                }}
-                            />
-                            <button
-                                onClick={startRecording}
-                                disabled={!isSessionReady || !!editingMessage || isBlocked}
-                                className={`p-2 transition-colors cursor-pointer rounded-lg hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed ${isRecording ? 'text-error animate-pulse' : 'text-on-surface-variant hover:text-primary'}`}
-                            >
-                                <span className="material-symbols-outlined text-xl">
-                                    {isRecording ? 'stop_circle' : 'mic'}
-                                </span>
-                            </button>
-                            <EmojiPickerButton
-                                disabled={!isSessionReady || isRecording || isBlocked}
-                                onEmojiSelect={handleEmojiSelect}
-                            />
-                        </div>
-                        <div className="flex items-center gap-2 px-1">
-                            <button
-                                onClick={handleSend}
-                                disabled={!composerText.trim() && !selectedFile || !isSessionReady || isBlocked}
-                                className={`p-1.5 md:p-2 ${editingMessage ? 'text-secondary' : 'text-primary'} hover:bg-primary/10 rounded-lg transition-all active:scale-95 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed`}
-                            >
-                                <span className="material-symbols-outlined text-[26px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                                    {editingMessage ? 'check' : 'send'}
-                                </span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
+
+            {/* Main Input Pill */}
+            <div className="bg-white rounded-full shadow-lg border border-gray-100 flex items-center px-2 py-2">
+                {/* Attachment button */}
+                <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isBlocked}
+                    className="p-3 text-gray-400 hover:text-gray-800 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                    <svg className="w-5 h-5 rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
+                    </svg>
+                </button>
+                <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) setSelectedFile(file);
+                        e.target.value = '';
+                    }}
+                />
+
+                {/* Mic button */}
+                <button
+                    onClick={startRecording}
+                    disabled={!isSessionReady || !!editingMessage || isBlocked}
+                    className={`p-2 transition-colors cursor-pointer rounded-full disabled:opacity-30 disabled:cursor-not-allowed ${isRecording ? 'text-red-500 animate-pulse' : 'text-gray-400 hover:text-gray-800'}`}
+                >
+                    <span className="material-symbols-outlined text-xl">
+                        {isRecording ? 'stop_circle' : 'mic'}
+                    </span>
+                </button>
+
+                {/* Emoji picker */}
+                <EmojiPickerButton
+                    disabled={!isSessionReady || isRecording || isBlocked}
+                    onEmojiSelect={handleEmojiSelect}
+                />
+
+                {/* Text input */}
+                <input
+                    ref={textareaRef}
+                    value={composerText}
+                    onChange={handleTextChange}
+                    onKeyDown={handleKeyDown}
+                    disabled={!isSessionReady || isRecording || isBlocked}
+                    className="flex-1 bg-transparent border-none focus:ring-0 text-gray-900 placeholder-gray-400 py-3 outline-none text-[15px] min-w-0"
+                    placeholder={
+                        isBlocked
+                            ? (blockedById === currentUserId ? "You have blocked this user." : "You cannot reply.")
+                            : (editingMessage ? "Edit your message..." : (isSessionReady ? "Write a Message" : "Connecting..."))
+                    }
+                    type="text"
+                />
+
+                {/* Send button */}
+                <button
+                    onClick={handleSend}
+                    disabled={!composerText.trim() && !selectedFile || !isSessionReady || isBlocked}
+                    className="w-12 h-12 bg-black text-white rounded-full flex items-center justify-center hover:bg-gray-800 transition-colors shadow-md ml-2 flex-shrink-0 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed active:scale-95"
+                >
+                    {editingMessage ? (
+                        <span className="material-symbols-outlined text-xl">check</span>
+                    ) : (
+                        <svg className="w-5 h-5 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
+                        </svg>
+                    )}
+                </button>
             </div>
         </div>
     );

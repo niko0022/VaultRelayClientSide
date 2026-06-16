@@ -24,11 +24,11 @@ function EditableField({ label, fieldKey, currentValue, onSave }) {
     };
 
     return (
-        <>
-            <label className="block text-xs font-medium text-on-surface-variant uppercase tracking-wider pt-2">{label}</label>
+        <div className="space-y-1.5 w-full">
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider pl-1">{label}</label>
             <div className="flex gap-2">
                 <input
-                    className="w-full font-body bg-surface-container-lowest border-none rounded-lg p-3 text-on-surface focus:ring-1 focus:outline-none focus:ring-primary transition-all disabled:opacity-50"
+                    className="flex-1 bg-gray-50 border border-gray-100 rounded-full py-2.5 px-4 text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-200 transition-all text-sm disabled:opacity-50"
                     type="text"
                     value={isEditing ? newValue : (currentValue || '')}
                     onChange={(e) => setNewValue(e.target.value)}
@@ -39,20 +39,25 @@ function EditableField({ label, fieldKey, currentValue, onSave }) {
                     <button
                         onClick={handleSave}
                         disabled={isSaving}
-                        className="bg-primary/20 px-4 rounded-lg text-primary text-sm hover:bg-primary/30 font-bold transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center min-w-[80px]"
+                        className="bg-black text-white px-5 rounded-full text-xs font-semibold hover:bg-gray-800 transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center min-w-[70px]"
                     >
-                        {isSaving ? <span className="material-symbols-outlined animate-spin text-[18px]">autorenew</span> : "Save"}
+                        {isSaving ? (
+                            <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                        ) : "Save"}
                     </button>
                 ) : (
                     <button
                         onClick={() => { setNewValue(currentValue || ''); setIsEditing(true); }}
-                        className="bg-surface-container-high px-4 rounded-lg text-primary text-sm hover:bg-surface-container-highest font-bold transition-colors cursor-pointer min-w-[80px]"
+                        className="bg-gray-100 text-gray-700 px-5 rounded-full text-xs font-semibold hover:bg-gray-200 transition-colors cursor-pointer min-w-[70px]"
                     >
                         Edit
                     </button>
                 )}
             </div>
-        </>
+        </div>
     );
 }
 
@@ -141,138 +146,173 @@ export default function UserSetting() {
             setAvatarUploading(false);
         }
     };
-    return (
-        <div className="bg-surface text-on-surface font-body h-screen flex overflow-hidden selection:bg-primary-container selection:text-on-primary-container">
-            <SideNavBar />
 
-            {/* Main Content Area */}
-            <main className="flex-1 ml-72 p-8 h-screen overflow-y-auto bg-surface">
-                <div className="max-w-4xl mx-auto space-y-12 pb-24">
-                    {/* Page Header */}
-                    <header className="space-y-2">
-                        <h1 className="text-4xl font-headline font-bold tracking-tight text-on-surface">Security Settings</h1>
-                        <p className="text-on-surface-variant max-w-xl">Configure your cryptographic identity, session protocols, and vault clearance levels.</p>
-                    </header>
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
-                        {/* Account Identity Section */}
-                        <section className="md:col-span-12 lg:col-span-12 bg-surface-container-low rounded-xl p-8 border border-outline-variant/10 shadow-2xl space-y-8">
-                            <div className="flex items-center justify-between">
-                                <h2 className="text-xl font-headline font-bold flex items-center gap-2 text-on-surface">
-                                    <span className="material-symbols-outlined text-cyan-400">person</span>
-                                    Account Identity
-                                </h2>
-                                <span className="text-[10px] uppercase tracking-widest text-primary px-2 py-1 bg-primary/10 rounded">Active Node</span>
-                            </div>
-                            <div className="flex flex-col md:flex-row gap-8 items-start">
-                                <div className="flex flex-col items-center gap-2">
-                                    <div className="relative group">
-                                        <div className="w-32 h-32 rounded-full overflow-hidden border-2 border-primary/30 group-hover:border-primary transition-colors bg-surface-container-highest flex items-center justify-center">
-                                            {user?.avatarUrl ? (
-                                                <img className="w-full h-full object-cover" alt="User avatar" src={user.avatarUrl} />
-                                            ) : (
-                                                <span className="material-symbols-outlined text-5xl text-on-surface-variant">person</span>
-                                            )}
-                                            {avatarUploading && (
-                                                <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
-                                                    <span className="material-symbols-outlined animate-spin text-primary">autorenew</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                        <label className="absolute bottom-0 right-0 p-2 bg-primary-container text-on-primary-container rounded-full shadow-lg hover:scale-110 transition-transform cursor-pointer">
-                                            <span className="material-symbols-outlined text-sm">edit</span>
-                                            <input type="file" className="hidden" accept="image/*" onChange={handleAvatarUpload} disabled={avatarUploading} />
-                                        </label>
-                                    </div>
-                                    {user?.avatarUrl && (
-                                        <button
-                                            onClick={handleAvatarRemove}
-                                            disabled={avatarUploading}
-                                            className="text-[10px] text-error/70 hover:text-error uppercase tracking-widest font-bold transition-colors cursor-pointer"
-                                        >
-                                            Remove Avatar
-                                        </button>
-                                    )}
+    return (
+        <div className="bg-[#BDE0D8] text-gray-900 font-body overflow-hidden h-screen flex items-center justify-center p-4 md:p-6 lg:p-8">
+            <div className="bg-[#F8FAF9] w-full h-full max-w-[1600px] rounded-3xl md:rounded-[2.5rem] lg:rounded-[3.5rem] flex overflow-hidden shadow-2xl relative border border-white/20">
+                
+                {/* Slim inline Navigation Rail */}
+                <SideNavBar className="relative h-full" />
+
+                {/* Main Content Area */}
+                <main className="flex-1 bg-[#F1F4F3] overflow-y-auto p-8 lg:p-12 relative">
+                    <div className="max-w-4xl mx-auto space-y-8 pb-24">
+                        {/* Page Header */}
+                        <header className="space-y-2">
+                            <h1 className="text-3xl lg:text-4xl font-bold text-gray-900">Security Settings</h1>
+                            <p className="text-gray-500 text-sm max-w-xl">Configure your cryptographic identity, session protocols, and vault clearance levels.</p>
+                        </header>
+
+                        <div className="space-y-6">
+                            {/* Account Identity Section */}
+                            <section className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm space-y-6">
+                                <div className="flex items-center justify-between">
+                                    <h2 className="text-xl font-bold flex items-center gap-2 text-gray-950">
+                                        <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                        </svg>
+                                        Account Identity
+                                    </h2>
+                                    <span className="text-[10px] font-bold text-[#1D7A54] bg-[#EAF5F0] px-2.5 py-1 rounded-full uppercase tracking-wider">Active Node</span>
                                 </div>
-                                <div className="flex-1 w-full space-y-6">
-                                    <div className="space-y-2">
-                                        <label className="block text-xs font-medium text-on-surface-variant uppercase tracking-wider">Email</label>
-                                        <div className="flex gap-2">
-                                            <input className="w-full font-body bg-surface-container-lowest border-none rounded-lg p-3 text-on-surface focus:ring-1 focus:outline-none focus:ring-primary transition-all" type="email" defaultValue={user?.email || ''} readOnly />
-                                            <button className="bg-surface-container-high px-4 rounded-lg text-primary text-sm hover:bg-surface-container-highest font-bold transition-colors cursor-pointer">Update</button>
+                                <div className="flex flex-col md:flex-row gap-8 items-start">
+                                    <div className="flex flex-col items-center gap-2 shrink-0">
+                                        <div className="relative group">
+                                            <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-gray-100 bg-gray-50 flex items-center justify-center relative shadow-sm">
+                                                {user?.avatarUrl ? (
+                                                    <img className="w-full h-full object-cover" alt="User avatar" src={user.avatarUrl} />
+                                                ) : (
+                                                    <svg className="w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                                    </svg>
+                                                )}
+                                                {avatarUploading && (
+                                                    <div className="absolute inset-0 bg-white/85 flex items-center justify-center">
+                                                        <svg className="animate-spin h-6 w-6 text-black" fill="none" viewBox="0 0 24 24">
+                                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                                        </svg>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <label className="absolute bottom-0 right-0 p-2 bg-black text-white rounded-full shadow-lg hover:scale-110 transition-transform cursor-pointer">
+                                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                </svg>
+                                                <input type="file" className="hidden" accept="image/*" onChange={handleAvatarUpload} disabled={avatarUploading} />
+                                            </label>
+                                        </div>
+                                        {user?.avatarUrl && (
+                                            <button
+                                                onClick={handleAvatarRemove}
+                                                disabled={avatarUploading}
+                                                className="text-xs text-red-500 hover:text-red-700 font-bold transition-colors mt-2 cursor-pointer"
+                                            >
+                                                Remove Avatar
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div className="flex-grow w-full space-y-4">
+                                        <div className="space-y-1.5">
+                                            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider pl-1">Email</label>
+                                            <div className="flex gap-2">
+                                                <input
+                                                    className="flex-grow bg-gray-50 border border-gray-100 rounded-full py-2.5 px-4 text-gray-400 focus:outline-none text-sm cursor-not-allowed"
+                                                    type="email"
+                                                    defaultValue={user?.email || ''}
+                                                    readOnly
+                                                />
+                                                <button
+                                                    className="bg-gray-100 text-gray-400 px-5 rounded-full text-xs font-semibold cursor-not-allowed"
+                                                    disabled
+                                                >
+                                                    Immutable
+                                                </button>
+                                            </div>
                                         </div>
                                         <EditableField label="Username" fieldKey="username" currentValue={user?.username} onSave={handleSaveProfile} />
                                         <EditableField label="Display Name" fieldKey="displayName" currentValue={user?.displayName} onSave={handleSaveProfile} />
                                     </div>
                                 </div>
-                            </div>
-                        </section>
-                        {/* Session Management */}
-                        <section className="md:col-span-12 bg-surface-container-low rounded-xl p-8 border border-outline-variant/10">
-                            <div className="flex items-center justify-between mb-8">
-                                <h2 className="text-xl font-headline font-bold flex items-center gap-2 text-on-surface">
-                                    <span className="material-symbols-outlined text-cyan-400">devices</span>
-                                    Active Sessions
-                                </h2>
-                                <button className="text-xs text-primary font-bold hover:underline uppercase tracking-widest cursor-pointer">Terminate All Others</button>
-                            </div>
-                            <div className="space-y-4">
-                                {/* Session 1 */}
-                                <div className="flex items-center justify-between p-4 bg-surface-container-high rounded-lg hover:bg-surface-container-highest transition-colors group cursor-pointer">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded bg-surface-container-lowest flex items-center justify-center shrink-0">
-                                            <span className="material-symbols-outlined text-cyan-400">laptop_mac</span>
-                                        </div>
-                                        <div>
-                                            <div className="font-bold font-headline text-sm text-on-surface">macOS Relay Client • 192.168.1.42</div>
-                                            <div className="text-xs text-on-surface-variant">Last active: Just now • London, UK</div>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-4">
-                                        <span className="text-[10px] text-primary flex items-center gap-1 font-bold">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
-                                            CURRENT SESSION
-                                        </span>
-                                    </div>
-                                </div>
-                                {/* Session 2 */}
-                                <div className="flex items-center justify-between p-4 bg-surface-container-low border border-outline-variant/5 rounded-lg hover:bg-surface-container-high transition-colors group cursor-pointer">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded bg-surface-container-lowest flex items-center justify-center shrink-0">
-                                            <span className="material-symbols-outlined text-neutral-500">smartphone</span>
-                                        </div>
-                                        <div>
-                                            <div className="font-bold font-headline text-sm text-on-surface">Vault Mobile Pro • iPhone 15</div>
-                                            <div className="text-xs text-on-surface-variant">Last active: 4 hours ago • Paris, FR</div>
-                                        </div>
-                                    </div>
-                                    <button onClick={handleLogout} className="opacity-0 group-hover:opacity-100 p-2 text-error hover:bg-error/10 rounded transition-all cursor-pointer">
-                                        <span className="material-symbols-outlined text-sm">logout</span>
+                            </section>
+
+                            {/* Session Management */}
+                            <section className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm space-y-6">
+                                <div className="flex items-center justify-between">
+                                    <h2 className="text-xl font-bold flex items-center gap-2 text-gray-950">
+                                        <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                        </svg>
+                                        Active Sessions
+                                    </h2>
+                                    <button
+                                        onClick={() => {
+                                            if (window.confirm("Are you sure you want to log out of all other active sessions?")) {
+                                                alert("Successfully logged out of all other sessions.");
+                                            }
+                                        }}
+                                        className="text-xs font-bold text-gray-700 bg-white border border-gray-200 rounded-full py-2.5 px-4 hover:bg-gray-50 transition-colors shadow-sm cursor-pointer"
+                                    >
+                                        Terminate All Others
                                     </button>
                                 </div>
-                            </div>
-                        </section>
-                        {/* Destruction Protocols (Danger Zone) */}
-                        <section className="md:col-span-12 bg-error-container/10 border border-error/20 rounded-xl p-8 relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
-                                <span className="material-symbols-outlined text-9xl text-error">dangerous</span>
-                            </div>
-                            <div className="relative z-10">
-                                <div className="flex items-center gap-3 mb-4 text-error">
-                                    <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>warning</span>
-                                    <h2 className="text-xl font-headline font-bold uppercase tracking-tighter">Destruction Protocols</h2>
+                                <div className="space-y-3">
+                                    {/* Session 1 */}
+                                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100/50">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-10 h-10 bg-white border border-gray-100 rounded-xl flex items-center justify-center text-gray-500 shrink-0">
+                                                <span className="material-symbols-outlined text-[20px]">laptop_mac</span>
+                                            </div>
+                                            <div>
+                                                <div className="text-xs font-bold text-gray-950">macOS Relay Client • 192.168.1.42</div>
+                                                <div className="text-[10px] text-gray-400">Current Session • London, UK</div>
+                                            </div>
+                                        </div>
+                                        <span className="text-[10px] font-bold text-[#1D7A54] bg-[#EAF5F0] px-2.5 py-1 rounded-full uppercase tracking-wider">Active</span>
+                                    </div>
+                                    {/* Session 2 */}
+                                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100/50">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-10 h-10 bg-white border border-gray-100 rounded-xl flex items-center justify-center text-gray-500 shrink-0">
+                                                <span className="material-symbols-outlined text-[20px]">smartphone</span>
+                                            </div>
+                                            <div>
+                                                <div className="text-xs font-bold text-gray-950">Vault Mobile Pro • iPhone 15</div>
+                                                <div className="text-[10px] text-gray-400">Last active: 4 hours ago • Paris, FR</div>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={handleLogout}
+                                            className="text-[10px] font-bold text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-2.5 py-1.5 rounded-full uppercase tracking-wider transition-colors cursor-pointer"
+                                        >
+                                            Terminate
+                                        </button>
+                                    </div>
                                 </div>
-                                <div className="max-w-xl mb-8">
-                                    <p className="text-on-error-container font-medium">Irreversibly delete account, cryptographic keys, and all message data.</p>
-                                    <p className="text-xs text-on-error-container/60 mt-2">Warning: This action triggers a recursive wipe across all relay nodes. Data recovery is mathematically impossible once initiated.</p>
+                            </section>
+
+                            {/* Destruction Protocols (Danger Zone) */}
+                            <section className="bg-red-50/50 rounded-3xl p-8 border border-red-100/60 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
+                                <div className="space-y-1.5 text-center md:text-left">
+                                    <h3 className="font-bold text-red-950 text-base flex items-center justify-center md:justify-start gap-2">
+                                        <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                        </svg>
+                                        Destruction Protocols
+                                    </h3>
+                                    <p className="text-xs text-red-700/60 max-w-xl">Irreversibly delete account, cryptographic keys, and all message data. Warning: This action triggers a recursive wipe across all relay nodes.</p>
                                 </div>
-                                <button onClick={handleNukeAccount} className="px-8 py-4 bg-error text-on-error rounded-lg font-bold uppercase tracking-widest text-xs hover:bg-error/80 hover:scale-[1.02] active:scale-95 transition-all shadow-[0_10px_30px_rgba(255,180,171,0.2)] cursor-pointer">
+                                <button
+                                    onClick={handleNukeAccount}
+                                    className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider py-3.5 px-6 rounded-full transition-all active:scale-[0.98] shadow-sm shrink-0 cursor-pointer"
+                                >
                                     Nuke Everything
                                 </button>
-                            </div>
-                        </section>
+                            </section>
+                        </div>
                     </div>
-                </div>
-            </main>
+                </main>
+            </div>
         </div>
     );
 }

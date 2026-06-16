@@ -24,132 +24,111 @@ export default function Login() {
         }
     }
 
-
     return (
-        <div className="bg-surface text-on-surface font-body selection:bg-primary-container selection:text-on-primary-container overflow-hidden min-h-screen relative">
-            {/* ─── TopAppBar ──────────────────────────────────────────────── */}
-            <header className="fixed top-0 w-full z-50 bg-[#131313]/70 backdrop-blur-xl shadow-[0_0_40px_rgba(0,229,255,0.08)] flex items-center gap-1 justify-center px-6 h-16">
-                <Link to="/" className="text-2xl font-bold tracking-tighter text-[#00e5ff] font-headline">
-                    Vault Relay
+        <div className="relative min-h-screen w-screen flex items-center justify-center p-4 md:p-6 overflow-hidden bg-[#E8F3EE] font-body selection:bg-black/10">
+            {/* Soft Blurred Mesh Background Elements */}
+            <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#BDE0D8] rounded-full blur-[120px] opacity-70"></div>
+            <div className="absolute top-[-5%] right-[-5%] w-[45%] h-[45%] bg-[#FCECD8] rounded-full blur-[100px] opacity-80"></div>
+            <div className="absolute bottom-[-10%] right-[-10%] w-[55%] h-[55%] bg-[#E8E8FF] rounded-full blur-[130px] opacity-75"></div>
+            <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-[#FDF0EB] rounded-full blur-[110px] opacity-80"></div>
+
+            {/* Back to Home Link (Subtle Logo/Badge in top left) */}
+            <div className="absolute top-6 left-6 z-20">
+                <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                    <div className="w-8 h-8 rounded-lg bg-black flex items-center justify-center shadow-md">
+                        <span className="material-symbols-outlined text-white text-base" style={{ fontVariationSettings: "'FILL' 1" }}>hexagon</span>
+                    </div>
+                    <span className="font-bold text-gray-900 text-sm tracking-tight">VaultRelay</span>
                 </Link>
-                <div className="flex items-center gap-4">
-                    <span className="material-symbols-outlined text-[#00e5ff]">shield</span>
-                </div>
-            </header>
+            </div>
 
-            {/* ─── Main Content ───────────────────────────────────────────── */}
-            <main className="relative min-h-screen w-full flex items-center justify-center p-6 bg-surface overflow-hidden">
-                {/* Abstract Background Elements */}
-                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary-container/5 rounded-full blur-[120px]"></div>
-                <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-secondary-container/5 rounded-full blur-[150px]"></div>
+            {/* Center Login Card */}
+            <div className="relative w-full max-w-[440px] z-10">
+                <div className="bg-white/40 backdrop-blur-3xl border border-white/60 rounded-[2.5rem] shadow-2xl p-10 md:p-12 flex flex-col">
+                    
+                    {/* Header */}
+                    <h1 className="text-[40px] font-bold text-gray-900 text-center tracking-tight mb-8">
+                        Login
+                    </h1>
 
-                {/* Login Canvas */}
-                <div className="relative w-full max-w-md z-10">
-                    {/* Branding Header */}
-                    <div className="mb-12 text-center">
-                        <h1 className="font-headline text-5xl font-bold tracking-tighter text-on-surface mb-2">
-                            LOGIN
-                        </h1>
-                    </div>
-
-                    {/* Login Card */}
-                    <div className="bg-surface-container-low rounded-xl p-1 bg-gradient-to-br from-outline-variant/20 to-transparent">
-                        <div className="glass-card rounded-xl p-8 shadow-2xl">
-                            <form className="space-y-6" onSubmit={handleSubmit}>
-                                {/* Error Banner */}
-                                {error && (
-                                    <div className="flex items-center gap-3 px-4 py-3 bg-error-container/20 border border-error/30 rounded-lg">
-                                        <span className="material-symbols-outlined text-error text-lg">error</span>
-                                        <p className="text-sm text-error font-medium">{error}</p>
-                                    </div>
-                                )}
-
-                                {/* Email Input */}
-                                <div className="space-y-2">
-                                    <label className="block font-label text-xs font-medium text-on-surface-variant ml-1">Email</label>
-                                    <div className="relative group">
-                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                            <span className="material-symbols-outlined text-sm text-outline">alternate_email</span>
-                                        </div>
-                                        <input
-                                            className="w-full bg-surface-container-lowest border-none rounded-lg py-4 pl-11 pr-4 text-on-surface placeholder:text-outline/40 focus:ring-1 focus:ring-primary-container transition-all"
-                                            placeholder="user@gmail.com"
-                                            type="email"
-                                            value={email}
-                                            onChange={(e) => setEmail(e.target.value)}
-                                            required
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Password Input */}
-                                <div className="space-y-2">
-                                    <label className="block font-label text-xs font-medium text-on-surface-variant ml-1">Password</label>
-                                    <div className="relative group">
-                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                            <span className="material-symbols-outlined text-sm text-outline">key</span>
-                                        </div>
-                                        <input
-                                            className="w-full bg-surface-container-lowest border-none rounded-lg py-4 pl-11 pr-4 text-on-surface placeholder:text-outline/40 focus:ring-1 focus:ring-primary-container transition-all"
-                                            placeholder="••••••••••••"
-                                            type="password"
-                                            value={password}
-                                            onChange={(e) => setPassword(e.target.value)}
-                                            required
-                                            minLength={6}
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Remember/Forgot Row */}
-                                <div className="flex items-center justify-between px-1">
-                                    <label className="flex items-center gap-2 cursor-pointer group">
-                                        <input
-                                            className="w-4 h-4 rounded bg-surface-container-lowest border-outline-variant text-primary-container focus:ring-primary-container"
-                                            type="checkbox"
-                                        />
-                                        <span className="font-label text-xs text-on-surface-variant group-hover:text-on-surface transition-colors">Remember Me</span>
-                                    </label>
-                                    <a className="font-label text-xs text-primary-fixed-dim hover:text-primary-container transition-colors" href="#">Forgot Password?</a>
-                                </div>
-
-                                {/* CTA Action */}
-                                <button
-                                    type="submit"
-                                    disabled={loading}
-                                    className="group relative w-full py-4 bg-primary-container text-on-primary-container font-headline font-bold rounded-lg overflow-hidden transition-all active:scale-[0.98] shadow-[0_0_30px_rgba(0,229,255,0.2)] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500"></div>
-                                    <div className="flex items-center justify-center gap-2">
-                                        {loading ? (
-                                            <span className="tracking-widest">AUTHENTICATING...</span>
-                                        ) : (
-                                            <span className="tracking-widest">LOGIN</span>
-                                        )}
-                                    </div>
-                                </button>
-                            </form>
-
-                            {/* Footer Options */}
-                            <div className="mt-8 pt-8 border-t border-outline-variant/10 text-center">
-                                <p className="font-label text-sm text-on-surface-variant">
-                                    Don't have an account?
-                                    <Link to="/register" className="text-primary-fixed-dim font-bold ml-1 hover:text-primary-container transition-colors">Sign Up</Link>
-                                </p>
+                    {/* Form */}
+                    <form className="space-y-5" onSubmit={handleSubmit}>
+                        {/* Error Banner */}
+                        {error && (
+                            <div className="flex items-center gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-2xl">
+                                <svg className="w-5 h-5 text-red-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                                <p className="text-xs text-red-600 font-medium">{error}</p>
                             </div>
+                        )}
+
+                        {/* Email Input */}
+                        <div className="relative flex items-center">
+                            <span className="absolute left-5 text-gray-400">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                </svg>
+                            </span>
+                            <input
+                                className="w-full bg-white/50 border border-gray-200/80 rounded-full py-4 pl-14 pr-6 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:bg-white transition-all text-[15px]"
+                                placeholder="Email"
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                required
+                            />
                         </div>
+
+                        {/* Password Input */}
+                        <div className="relative flex items-center">
+                            <span className="absolute left-5 text-gray-400">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                </svg>
+                            </span>
+                            <input
+                                className="w-full bg-white/50 border border-gray-200/80 rounded-full py-4 pl-14 pr-6 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:bg-white transition-all text-[15px]"
+                                placeholder="Password"
+                                type="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                required
+                                minLength={6}
+                            />
+                        </div>
+
+                        {/* Remember / Forgot Row */}
+                        <div className="flex items-center justify-between px-3">
+                            <label className="flex items-center gap-2 cursor-pointer group">
+                                <input
+                                    className="w-4 h-4 rounded border-gray-300 text-black focus:ring-black accent-black"
+                                    type="checkbox"
+                                />
+                                <span className="text-xs text-gray-500 group-hover:text-gray-800 transition-colors">Remember Me</span>
+                            </label>
+                            <a className="text-xs text-gray-500 hover:text-gray-800 transition-colors" href="#">Forgot Password?</a>
+                        </div>
+
+                        {/* Submit Button */}
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full py-4 bg-black text-white text-sm font-semibold rounded-full hover:bg-gray-900 transition-all active:scale-[0.98] shadow-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+                        >
+                            {loading ? "Signing In..." : "Sign In"}
+                        </button>
+                    </form>
+
+                    {/* Footer Options */}
+                    <div className="mt-8 pt-6 border-t border-gray-200/60 text-center">
+                        <p className="text-xs text-gray-500">
+                            Don't have an account?
+                            <Link to="/register" className="text-gray-900 font-bold ml-1.5 hover:underline transition-colors">Sign Up</Link>
+                        </p>
                     </div>
                 </div>
-            </main>
-
-            {/* Background Decoration Grid */}
-            <div
-                className="fixed inset-0 pointer-events-none z-0 opacity-10"
-                style={{
-                    backgroundImage: "radial-gradient(circle at 2px 2px, #849396 1px, transparent 0)",
-                    backgroundSize: "48px 48px"
-                }}
-            ></div>
+            </div>
         </div>
     );
 }

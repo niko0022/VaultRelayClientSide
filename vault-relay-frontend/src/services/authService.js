@@ -6,7 +6,6 @@ async function request(endpoint, options = {}) {
   const config = {
     headers: {
       'Content-Type': 'application/json',
-      'ngrok-skip-browser-warning': 'true',
     },
     credentials: 'include',
     ...options,
@@ -22,7 +21,6 @@ async function request(endpoint, options = {}) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
         },
         credentials: 'include',
       });

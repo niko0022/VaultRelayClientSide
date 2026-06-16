@@ -13,7 +13,6 @@ class ChatService {
             ...options,
             credentials: 'include', // Automatically send httpOnly cookies
             headers: {
-                'ngrok-skip-browser-warning': 'true',
                 ...options.headers,
             },
         };

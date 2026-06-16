@@ -1,33 +1,33 @@
 export default function FriendRequestCard({ req, onAccept, onDecline, isLoading }) {
     return (
-        <div className="p-3 bg-primary-container/5 ring-1 ring-primary-container/20 rounded-xl mb-1.5">
+        <div className="p-3.5 bg-white border border-teal-100 rounded-xl mb-2 shadow-sm">
             <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center shrink-0 overflow-hidden">
+                <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden ring-2 ring-teal-100">
                     {req.user.avatarUrl ? (
                         <img src={req.user.avatarUrl} alt="" className="w-full h-full object-cover" />
                     ) : (
-                        <span className="material-symbols-outlined text-on-surface-variant">person</span>
+                        <span className="material-symbols-outlined text-gray-400">person</span>
                     )}
                 </div>
                 <div className="flex-1 min-w-0">
-                    <h3 className="font-headline font-bold text-sm text-on-surface truncate">
+                    <h3 className="font-semibold text-sm text-gray-800 truncate">
                         {req.user.displayName || req.user.username}
                     </h3>
-                    <span className="text-[10px] text-on-surface-variant">wants to connect</span>
+                    <span className="text-[10px] text-gray-400">wants to connect</span>
                 </div>
             </div>
             <div className="flex gap-2 mt-3">
                 <button
                     onClick={onAccept}
                     disabled={isLoading}
-                    className="flex-1 bg-primary-container text-on-primary-container text-xs font-bold py-2 rounded-lg uppercase tracking-wider hover:shadow-[0_0_20px_rgba(0,229,255,0.3)] transition-all cursor-pointer disabled:opacity-50"
+                    className="flex-1 bg-teal-500 text-white text-xs font-bold py-2 rounded-lg uppercase tracking-wider hover:bg-teal-600 transition-colors cursor-pointer disabled:opacity-50 shadow-sm"
                 >
                     Accept
                 </button>
                 <button
                     onClick={onDecline}
                     disabled={isLoading}
-                    className="flex-1 bg-surface-container-highest/30 text-on-surface-variant text-xs font-bold py-2 rounded-lg uppercase tracking-wider hover:text-error hover:bg-error/10 transition-all cursor-pointer disabled:opacity-50"
+                    className="flex-1 bg-gray-100 text-gray-500 text-xs font-bold py-2 rounded-lg uppercase tracking-wider hover:text-rose-500 hover:bg-rose-50 transition-all cursor-pointer disabled:opacity-50"
                 >
                     Decline
                 </button>

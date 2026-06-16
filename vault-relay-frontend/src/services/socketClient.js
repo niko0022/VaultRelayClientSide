@@ -2,7 +2,7 @@ import { io } from 'socket.io-client';
 import { refreshToken } from './authService';
 import { logEvent } from '../lib/eventLog';
 
-const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+const SOCKET_URL = import.meta.env.VITE_API_URL || window.location.origin;
 
 class SocketClient {
     constructor() {

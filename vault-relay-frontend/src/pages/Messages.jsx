@@ -26,12 +26,13 @@ export default function Messages() {
 
 
     return (
-        <div className="bg-background text-on-surface font-body overflow-hidden h-screen flex relative">
-            <SideNavBar />
+        <div className="bg-[#BDE0D8] text-gray-900 font-body overflow-hidden h-screen flex items-center justify-center p-4 md:p-6 lg:p-8">
+            <div className="bg-[#F8FAF9] w-full h-full max-w-[1600px] rounded-3xl md:rounded-[2.5rem] lg:rounded-[3.5rem] flex overflow-hidden shadow-2xl relative border border-white/20">
+                <SideNavBar className="relative h-full" />
 
-            <main className="flex flex-1 ml-72 h-screen overflow-hidden">
-                {/* Secondary Pane: Conversation List */}
-                <ConversationSidebar
+                <main className="flex flex-1 h-full overflow-hidden">
+                    {/* Secondary Pane: Conversation List */}
+                    <ConversationSidebar
                     setShowGroupModal={setShowGroupModal}
                     convsLoading={convsLoading}
                     conversations={conversations}
@@ -41,12 +42,12 @@ export default function Messages() {
                 />
 
                 {/* Main Area: Active Chat */}
-                <section className="flex-1 h-full flex flex-col bg-surface overflow-hidden relative">
+                <section className="flex-1 h-full flex flex-col bg-[#F1F4F3] overflow-hidden relative">
                     {!selectedConversationId ? (
-                        <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-surface-container-lowest/30">
-                            <span className="material-symbols-outlined text-6xl text-on-surface-variant/30 mb-4">forum</span>
-                            <h2 className="text-xl font-headline text-on-surface">Select a Conversation</h2>
-                            <p className="text-sm text-on-surface-variant mt-2 max-w-sm">Choose an active chat from the sidebar or start a new secure exchange.</p>
+                        <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-[#F8FAF9]">
+                            <span className="material-symbols-outlined text-6xl text-gray-300 mb-4">forum</span>
+                            <h2 className="text-xl font-bold text-gray-900">Select a Conversation</h2>
+                            <p className="text-sm text-gray-500 mt-2 max-w-sm">Choose an active chat from the sidebar or start a new secure exchange.</p>
                         </div>
                     ) : (
                         <>
@@ -79,7 +80,7 @@ export default function Messages() {
                                 )}
 
                                 <div className="flex justify-center my-4">
-                                    <div className="bg-surface-container-low px-4 py-1.5 rounded-full text-[10px] uppercase tracking-[0.2em] text-on-surface-variant font-medium border border-white/5">
+                                    <div className="bg-white/80 backdrop-blur-sm px-4 py-1.5 rounded-full text-[10px] uppercase tracking-[0.2em] text-gray-500 font-semibold border border-gray-100/50 shadow-sm">
                                         Communication Tunnel Established
                                     </div>
                                 </div>
@@ -94,6 +95,7 @@ export default function Messages() {
                                         reactions={reactions[msg.id] || []}
                                         onReact={(emoji) => reactToMessage(msg.id, emoji)}
                                         currentUserId={user?.id}
+                                        isBlocked={activeConv?.isBlocked}
                                     />
                                 ))}
                                 <div ref={messagesEndRef} />
@@ -133,10 +135,9 @@ export default function Messages() {
                     )}
                 </section>
             </main>
+        </div>
 
-            <div className="fixed top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-secondary to-primary opacity-20 z-[60] pointer-events-none"></div>
-
-            {showGroupModal && <CreateGroupModal onClose={() => setShowGroupModal(false)} />}
+        {showGroupModal && <CreateGroupModal onClose={() => setShowGroupModal(false)} />}
 
             <MessageContextMenu
                 contextMenu={contextMenu}

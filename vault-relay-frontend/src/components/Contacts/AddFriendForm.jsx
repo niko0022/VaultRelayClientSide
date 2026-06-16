@@ -2,9 +2,9 @@ export default function AddFriendForm({ searchCode, onSearchChange, onSubmit, is
     return (
         <>
             <form onSubmit={onSubmit} className="relative">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">person_add</span>
+                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-[18px]">person_search</span>
                 <input
-                    className="w-full bg-surface-container-lowest border-none focus:ring-1 focus:ring-primary-container focus:outline-none text-on-surface text-sm pl-10 pr-20 py-3 rounded-lg placeholder:text-on-surface-variant/50 transition-all font-mono"
+                    className="w-full bg-white border border-gray-200 focus:ring-2 focus:ring-teal-300 focus:border-teal-300 focus:outline-none text-gray-700 text-sm pl-10 pr-20 py-3 rounded-xl placeholder:text-gray-300 transition-all font-mono shadow-sm"
                     placeholder="Enter friend code..."
                     type="text"
                     value={searchCode}
@@ -13,7 +13,7 @@ export default function AddFriendForm({ searchCode, onSearchChange, onSubmit, is
                 <button
                     type="submit"
                     disabled={!searchCode.trim() || isLoading}
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-primary-container text-on-primary-container text-xs font-bold px-3 py-1.5 rounded-md uppercase tracking-wider hover:shadow-[0_0_20px_rgba(0,229,255,0.3)] transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-teal-500 text-white text-xs font-bold px-3.5 py-1.5 rounded-lg uppercase tracking-wider hover:bg-teal-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer shadow-sm"
                 >
                     {isLoading ? '...' : 'Add'}
                 </button>
@@ -21,7 +21,11 @@ export default function AddFriendForm({ searchCode, onSearchChange, onSubmit, is
 
             {/* Search Feedback */}
             {status && (
-                <div className={`text-xs px-3 py-2 rounded-lg ${status.type === 'success' ? 'bg-primary/10 text-primary' : 'bg-error/10 text-error'}`}>
+                <div className={`text-xs px-3 py-2 mt-2 rounded-lg font-medium ${
+                    status.type === 'success'
+                        ? 'bg-teal-50 text-teal-600 border border-teal-100'
+                        : 'bg-rose-50 text-rose-500 border border-rose-100'
+                }`}>
                     {status.message}
                 </div>
             )}

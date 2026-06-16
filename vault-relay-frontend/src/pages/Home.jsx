@@ -1,129 +1,188 @@
-import Navbar from '../components/Navbar';
-import Footer from '../components/Footer';
-import phone from '../assets/phone_image.png';
+import { Link } from 'react-router-dom';
+import chatPreview from '../assets/brave_screenshot_stitch.withgoogle.com.png';
 
+/* ─── Decorative: Encrypted message card ───────────────────────────────── */
+function EncryptedMessageCard() {
+    return (
+        <div className="relative w-full">
+            {/* Outer dark glass card */}
+            <div className="rounded-2xl bg-gray-900/80 backdrop-blur-xl border border-white/10 p-6 shadow-2xl">
+                <div className="flex gap-4 items-start">
+                    {/* Encrypted gibberish */}
+                    <div className="flex-1 font-mono text-sm text-gray-400 leading-relaxed">
+                        <p>*^@#%&.&</p>
+                        <p>*%^*€^.&$#</p>
+                        <p>*@#%^.%~</p>
+                        <p className="text-gray-500">~^.#%*</p>
+                    </div>
+                    {/* Lock icon */}
+                    <div className="shrink-0 flex flex-col items-center gap-2">
+                        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-teal-400/30 to-cyan-600/30 border border-teal-400/40 flex items-center justify-center shadow-[0_0_20px_rgba(0,200,200,0.3)]">
+                            <span className="material-symbols-outlined text-teal-300 text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>lock</span>
+                        </div>
+                    </div>
+                </div>
+                {/* Right-side decrypted bubble */}
+                <div className="mt-4 ml-auto w-fit bg-white/10 backdrop-blur border border-white/20 rounded-2xl px-4 py-3">
+                    <p className="text-white text-sm font-medium leading-snug">Your<br />messages are<br />end-to-end<br />encrypted.</p>
+                </div>
 
+                {/* Status bar */}
+                <div className="mt-4 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 flex items-center gap-3">
+                    <span className="material-symbols-outlined text-teal-400 text-base" style={{ fontVariationSettings: "'FILL' 1" }}>verified_user</span>
+                    <div>
+                        <p className="text-xs text-gray-400">Encryption Status: <span className="text-teal-400 font-semibold">Secure</span></p>
+                        <p className="text-[11px] text-gray-500">Connected via Signal Protocol.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/* ─── Main Home Page ────────────────────────────────────────────────────── */
 export default function Home() {
     return (
-        <div className="bg-background text-on-background font-body selection:bg-primary-container selection:text-on-primary-container">
-            {/* ─── Navbar ─────────────────────────────────────────────────── */}
-            <Navbar />
-            {/* ─── Main Content ───────────────────────────────────────────── */}
-            <main className="pt-24">
-                {/* ─── Hero Section ─────────────────────────────────────────── */}
-                <section className="relative min-h-[921px] flex items-center overflow-hidden hero-gradient">
-                    <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-                        <div className="z-10">
-                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-surface-container-high rounded-full mb-8">
-                                <span className="w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_#00daf3]"></span>
-                                <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Quantum-Ready Encryption</span>
-                            </div>
-                            <h1 className="font-headline text-6xl md:text-8xl font-black tracking-tighter leading-[0.9] mb-8">
-                                Protected <span className="text-primary-container">Privacy</span>,<br />
-                                Seamless <span className="text-secondary">Connection</span>.
+        <div className="min-h-screen font-body" style={{
+            background: 'linear-gradient(135deg, #d4f0ee 0%, #e8f5e8 25%, #f0ece0 50%, #f5e8dc 75%, #eddee8 100%)'
+        }}>
+            {/* ─── Navbar ──────────────────────────────────────────────────── */}
+            <nav className="fixed top-0 w-full z-50 bg-white/30 backdrop-blur-xl border-b border-white/40 shadow-sm">
+                <div className="flex justify-between items-center w-full px-6 py-4 max-w-7xl mx-auto">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center">
+                            <span className="material-symbols-outlined text-white text-base" style={{ fontVariationSettings: "'FILL' 1" }}>hexagon</span>
+                        </div>
+                        <span className="font-black text-gray-900 text-lg tracking-tight">VaultRelay</span>
+                    </div>
+                    <div className="hidden md:flex items-center gap-8">
+                        <a className="text-gray-900 font-semibold text-sm border-b-2 border-gray-900 pb-0.5" href="#">Home</a>
+                        <a className="text-gray-500 hover:text-gray-900 font-medium text-sm transition-colors" href="#">Features</a>
+                        <a className="text-gray-500 hover:text-gray-900 font-medium text-sm transition-colors" href="#">Security</a>
+                    </div>
+                    <Link to="/login">
+                        <button className="bg-gray-900 text-white px-5 py-2 rounded-full font-semibold text-sm hover:bg-gray-800 active:scale-95 transition-all cursor-pointer">
+                            Download
+                        </button>
+                    </Link>
+                </div>
+            </nav>
+
+            <main>
+                {/* ═══════════════════════════════════════════════════════════
+                    TOP HALF — Hero + Feature cards  (Screen 1)
+                ═══════════════════════════════════════════════════════════ */}
+                <section className="pt-28 pb-16 px-6 max-w-7xl mx-auto">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                        {/* Left: Hero copy */}
+                        <div>
+                            <h1 className="text-5xl md:text-6xl font-black tracking-tight text-gray-900 leading-[1.05] mb-5">
+                                Privacy by Design,<br />
+                                Security by Signal
                             </h1>
-                            <p className="text-lg md:text-xl text-on-surface-variant mb-12 max-w-lg leading-relaxed">
-                                Protected human communication. Built on the Signal protocol architecture, your messages never touch the central server.
+                            <p className="text-gray-600 text-lg leading-relaxed max-w-md mb-10">
+                                Experience end-to-end encrypted messaging with the world-renowned Signal Protocol. Your conversations are truly private.
                             </p>
-                            <div className="flex flex-col sm:flex-row gap-4">
-                                <button className="bg-primary-container text-on-primary-container px-10 py-4 font-headline font-extrabold text-lg tracking-tight hover:shadow-[0_0_30px_rgba(0,229,255,0.3)] transition-all active:scale-95 cursor-pointer">
-                                    Start Secure Chat
+                            <Link to="/register">
+                                <button className="bg-gray-900 text-white px-8 py-3.5 rounded-full font-semibold text-sm hover:bg-gray-800 transition-all active:scale-95 cursor-pointer shadow-lg">
+                                    Get Started Free
                                 </button>
-                            </div>
+                            </Link>
                         </div>
+
+                        {/* Right: Mock chat preview */}
                         <div className="relative">
-                            <div className="relative z-10 glass-card p-4 rounded-xl shadow-2xl transform rotate-2">
-                                <img
-                                    className="w-full h-auto rounded-lg grayscale hover:grayscale-0 transition-all duration-700"
-                                    alt="Futuristic encrypted mobile interface with data streams"
-                                    src={phone}
-                                />
+                            {/* Glow blob */}
+                            <div className="absolute inset-0 bg-teal-300/20 rounded-3xl blur-[60px] scale-110 pointer-events-none" />
+                            <img src={chatPreview} alt="VaultRelay Chat Preview" className="w-full rounded-2xl shadow-2xl border border-white/30 relative z-10" />
+                        </div>
+                    </div>
+
+                    {/* ─── Feature Cards Row ──────────────────────────────── */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-16">
+                        {/* Signal Protocol */}
+                        <div className="bg-white/40 backdrop-blur-md border border-white/50 rounded-2xl p-7 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all">
+                            {/* Wave icon decoration */}
+                            <div className="mb-4 flex items-center justify-center w-12 h-12 rounded-xl bg-teal-100/80">
+                                <span className="material-symbols-outlined text-teal-600 text-2xl">lock</span>
                             </div>
-                            <div className="absolute -top-12 -right-12 w-64 h-64 bg-secondary-container/20 rounded-full blur-[100px]"></div>
-                            <div className="absolute -bottom-12 -left-12 w-64 h-64 bg-primary-container/10 rounded-full blur-[100px]"></div>
+                            <h3 className="text-gray-900 font-bold text-lg mb-2">Signal Protocol</h3>
+                            <p className="text-gray-500 text-sm leading-relaxed">
+                                State-of-the-art encryption built on the world-renowned Signal Protocol. Your conversations are for-data.
+                            </p>
+                        </div>
+
+                        {/* Zero-Knowledge */}
+                        <div className="bg-white/40 backdrop-blur-md border border-white/50 rounded-2xl p-7 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all">
+                            <div className="mb-4 flex items-center justify-center w-12 h-12 rounded-xl bg-purple-100/80">
+                                <span className="material-symbols-outlined text-purple-600 text-2xl">shield</span>
+                            </div>
+                            <h3 className="text-gray-900 font-bold text-lg mb-2">Zero-Knowledge</h3>
+                            <p className="text-gray-500 text-sm leading-relaxed">
+                                No data is stored on our servers. All encryption happens on-device to keep your information private.
+                            </p>
+                        </div>
+
+                        {/* Secure Media */}
+                        <div className="bg-white/40 backdrop-blur-md border border-white/50 rounded-2xl p-7 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all">
+                            <div className="mb-4 flex items-center justify-center w-12 h-12 rounded-xl bg-cyan-100/80">
+                                <span className="material-symbols-outlined text-cyan-600 text-2xl">cloud_done</span>
+                            </div>
+                            <h3 className="text-gray-900 font-bold text-lg mb-2">Secure Media</h3>
+                            <p className="text-gray-500 text-sm leading-relaxed">
+                                Encrypted voice and photo sharing. Your passwords, messages, and media stay completely private.
+                            </p>
                         </div>
                     </div>
                 </section>
 
-                {/* ─── Features Section ─────────────────────────────────────── */}
-                <section className="py-32 bg-surface-container-low">
-                    <div className="max-w-7xl mx-auto px-6">
-                        <div className="mb-20 space-y-4">
-                            <h2 className="font-headline text-4xl md:text-5xl font-black tracking-tighter">Engineered for Stealth.</h2>
-                            <p className="text-on-surface-variant max-w-xl">Zero-knowledge infrastructure ensures that even we can&apos;t see what you&apos;re sending.</p>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            {/* E2EE Card (2-col) */}
-                            <div className="md:col-span-1 bg-surface-container-high p-12 relative overflow-hidden group">
-                                <div className="relative z-10 h-full flex flex-col justify-between">
-                                    <div>
-                                        <span className="material-symbols-outlined text-primary text-5xl mb-6" style={{ fontVariationSettings: "'FILL' 1" }}>lock</span>
-                                        <h3 className="font-headline text-3xl font-bold mb-4">End-to-End Encryption</h3>
-                                        <p className="text-on-surface-variant max-w-sm">Every message is sealed with a unique cryptographic key generated on your device.</p>
-                                    </div>
-                                    <div className="inline-flex items-center gap-2 text-secondary font-headline font-bold text-sm cursor-pointer hover:text-primary transition-colors">
-                                        <span>Learn about signal protocol</span>
-                                        <span className="material-symbols-outlined">arrow_back</span>
-                                    </div>
+                {/* ═══════════════════════════════════════════════════════════
+                    BOTTOM HALF — Gold Standard CTA + Encryption Demo  (Screen 2)
+                ═══════════════════════════════════════════════════════════ */}
+                <section className="px-6 pb-24 max-w-7xl mx-auto">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Left: CTA card */}
+                        <div className="bg-white/40 backdrop-blur-md border border-white/50 rounded-3xl p-10 flex flex-col justify-between shadow-sm">
+                            <div>
+                                <h2 className="text-4xl md:text-5xl font-black text-gray-900 leading-tight mb-5">
+                                    The Gold Standard<br />
+                                    of Privacy.
+                                </h2>
+                                <p className="text-gray-500 text-base leading-relaxed mb-8 max-w-sm">
+                                    Experience secure, end-to-end encrypted messaging built on the Signal encryption protocol. Your conversations, completely private.
+                                </p>
+                                {/* Buttons */}
+                                <div className="flex flex-wrap gap-3 mb-8">
+                                    <Link to="/register">
+                                        <button className="bg-gray-900 text-white px-6 py-2.5 rounded-full font-semibold text-sm hover:bg-gray-800 active:scale-95 transition-all cursor-pointer shadow-md">
+                                            Download Now
+                                        </button>
+                                    </Link>
+                                    <Link to="/register">
+                                        <button className="bg-white/60 text-gray-800 px-6 py-2.5 rounded-full font-semibold text-sm border border-gray-200 hover:bg-white/80 active:scale-95 transition-all cursor-pointer">
+                                            Learn More
+                                        </button>
+                                    </Link>
                                 </div>
                             </div>
-
-
-                            {/* Post-Quantum Kyber Card */}
-                            <div className="bg-surface-container-highest p-12 border-t-4 border-primary">
-                                <span className="material-symbols-outlined text-primary text-4xl mb-6">memory</span>
-                                <h3 className="font-headline text-3xl font-bold mb-4">Post-Quantum Secure</h3>
-                                <p className="text-on-surface-variant">Secured by Kyber-768 cryptography. Your data is shielded against future threats from quantum supercomputers and "Harvest Now, Decrypt Later" reconnaissance attacks.</p>
-                            </div>
-
-                            {/* WebAssembly Crypto Engine Card */}
-                            <div className="md:col-span-1 bg-surface-container-low p-12 flex flex-col items-start gap-6 border border-outline-variant/15 relative overflow-hidden">
-                                <span className="material-symbols-outlined text-primary text-4xl">terminal</span>
-                                <div className="flex-1 z-10">
-                                    <h3 className="font-headline text-3xl font-bold mb-4">WebAssembly Crypto Engine</h3>
-                                    <p className="text-on-surface-variant mb-8 text-sm leading-relaxed">Cryptographic heavy lifting is powered by a native Rust-compiled WebAssembly bridge. This guarantees deterministic execution, constant-time operations to thwart side-channel attacks, and near-native speeds directly in your browser.</p>
-                                    <div className="inline-flex items-center gap-2 text-secondary font-headline font-bold text-sm cursor-pointer hover:text-primary transition-colors">
-                                        View Architecture
-                                        <span className="material-symbols-outlined text-sm">arrow_back</span>
-                                    </div>
-                                </div>
-                                {/* Code block decorative background */}
-                                <div className="absolute -right-8 -bottom-8 opacity-5 pointer-events-none select-none font-mono text-xs whitespace-pre">
-                                    {'pub fn encrypt(msg: &[u8]) -> Vec<u8> {\n  let cipher = AES256_GCM::new(key);\n  cipher.encrypt(nonce, msg)\n}\n\n#[wasm_bindgen]\npub fn init_bridge() -> Result<(), JsValue> {'}
-                                </div>
+                            {/* Trust badges */}
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <span className="material-symbols-outlined text-gray-500 text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>lock</span>
+                                <span className="material-symbols-outlined text-gray-500 text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>shield</span>
+                                <span className="material-symbols-outlined text-gray-500 text-lg">code</span>
+                                <span className="text-gray-500 text-sm ml-1">Signal Protocol &nbsp;|&nbsp; No Data Collection &nbsp;|&nbsp; Open Source</span>
                             </div>
                         </div>
-                    </div>
-                </section>
 
-                {/* ─── CTA Section ──────────────────────────────────────────── */}
-                <section className="py-40 bg-background relative overflow-hidden">
-                    <div className="max-w-7xl mx-auto px-6 text-center relative z-10">
-                        <h2 className="font-headline text-5xl md:text-7xl font-black tracking-tighter mb-8">
-                            Ready to enter<br />the <span className="text-primary-container">Vault?</span>
-                        </h2>
-                        <p className="text-on-surface-variant text-xl max-w-2xl mx-auto mb-16">Ready to start chatting securely? register or login to use browser version or download the mobile app.</p>
-                        <div className="flex flex-wrap justify-center gap-6">
-                            <button className="bg-primary-container text-on-primary-container px-12 py-5 font-headline font-black text-xl flex items-center gap-3 active:scale-95 transition-all cursor-pointer">
-                                <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>android</span>
-                                Coming soon
-                            </button>
-
-                            <button className="bg-primary-container text-on-primary-container px-12 py-5 font-headline font-black text-xl flex items-center gap-3 active:scale-95 transition-all cursor-pointer">
-                                <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>public</span>
-                                open web app
-                            </button>
-
+                        {/* Right: Encrypted message demo */}
+                        <div className="flex items-center justify-center p-4">
+                            <div className="w-full max-w-sm">
+                                <EncryptedMessageCard />
+                            </div>
                         </div>
-                    </div>
-                    <div className="absolute inset-0 opacity-20 pointer-events-none">
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary-container rounded-full blur-[200px] mix-blend-screen"></div>
                     </div>
                 </section>
             </main>
-
-            {/* ─── Footer ─────────────────────────────────────────────────── */}
-            <Footer />
         </div>
     );
 }
