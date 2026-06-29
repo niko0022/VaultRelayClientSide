@@ -1,11 +1,34 @@
+import { useRef, useEffect, useState } from 'react';
+import ConfirmationModal from '../Shared/ConfirmationModal';
+
 export default function ActiveChatHeader({
     recipientName,
     recipientUser,
     isSessionReady,
     menuOpen,
     setMenuOpen,
-    onDeleteConversation
+    onDeleteConversation,
+    onToggleMediaPanel,
+    mediaPanelOpen
 }) {
+    const menuRef = useRef(null);
+    const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+
+    useEffect(() => {
+        if (!menuOpen) return;
+
+        const handleClickOutside = (event) => {
+            if (menuRef.current && !menuRef.current.contains(event.target)) {
+                setMenuOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [menuOpen, setMenuOpen]);
+
     return (
         <header className="h-20 px-8 flex items-center justify-between border-b border-gray-200 bg-white/60 backdrop-blur-md z-10 shrink-0">
             <div className="flex items-center">
@@ -48,19 +71,20 @@ export default function ActiveChatHeader({
 
             {/* Action Icons */}
             <div className="flex items-center gap-3 text-gray-400">
-                <button className="p-2 hover:text-gray-800 transition-colors rounded-full hover:bg-gray-50">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
-                    </svg>
-                </button>
-                <button className="p-2 hover:text-gray-800 transition-colors rounded-full hover:bg-gray-50">
+                <button
+                    onClick={onToggleMediaPanel}
+                    className={`p-2 transition-colors rounded-full cursor-pointer ${
+                        mediaPanelOpen ? 'text-gray-800 bg-gray-100' : 'hover:text-gray-800 hover:bg-gray-50'
+                    }`}
+                    title="View Photos and Files"
+                >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
                     </svg>
                 </button>
 
                 {/* Action Menu Dropdown */}
-                <div className="relative">
+                <div className="relative" ref={menuRef}>
                     <button
                         onClick={() => setMenuOpen(!menuOpen)}
                         className="p-2 hover:text-gray-800 transition-colors rounded-full hover:bg-gray-50 cursor-pointer"
@@ -75,9 +99,7 @@ export default function ActiveChatHeader({
                             <button
                                 onClick={() => {
                                     setMenuOpen(false);
-                                    if (window.confirm("Are you sure you want to permanently delete this entire conversation for everyone?")) {
-                                        onDeleteConversation();
-                                    }
+                                    setConfirmDeleteOpen(true);
                                 }}
                                 className="w-full text-left px-4 py-3 text-sm text-red-500 hover:bg-gray-50 transition-colors cursor-pointer flex items-center gap-3"
                             >
@@ -88,6 +110,15 @@ export default function ActiveChatHeader({
                     )}
                 </div>
             </div>
+
+            <ConfirmationModal
+                isOpen={confirmDeleteOpen}
+                onClose={() => setConfirmDeleteOpen(false)}
+                onConfirm={onDeleteConversation}
+                title="Delete Conversation"
+                message="Are you sure you want to permanently delete this entire conversation for everyone?"
+                confirmText="Delete"
+            />
         </header>
     );
 }
