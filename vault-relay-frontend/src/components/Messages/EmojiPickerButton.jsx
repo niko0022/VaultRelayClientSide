@@ -31,7 +31,7 @@ export default function EmojiPickerButton({ onEmojiSelect, disabled = false }) {
                 type="button"
                 disabled={disabled}
                 onClick={() => setOpen(prev => !prev)}
-                className="p-2 rounded-full hover:bg-surface-container-high transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                className="p-2 rounded-full hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                 title="Emoji"
             >
                 <span className="text-lg select-none">😊</span>
@@ -43,7 +43,7 @@ export default function EmojiPickerButton({ onEmojiSelect, disabled = false }) {
                         onEmojiClick={(emojiData) => {
                             onEmojiSelect(emojiData.emoji);
                         }}
-                        theme="dark"
+                        theme="light"
                         emojiStyle="native"
                         lazyLoadEmojis={true}
                         searchPlaceholder="Search emoji..."
