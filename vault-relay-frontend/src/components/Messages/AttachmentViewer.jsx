@@ -94,7 +94,7 @@ export default function AttachmentViewer({ attachmentUrl, attachmentMeta }) {
     if (isImage) {
         if (loading) {
             return (
-                <div className="flex items-center gap-2 py-2 text-on-surface-variant text-xs">
+                <div className="flex items-center gap-2 py-2 text-gray-500 text-xs">
                     <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
                     Decrypting image...
                 </div>
@@ -118,7 +118,7 @@ export default function AttachmentViewer({ attachmentUrl, attachmentMeta }) {
                         onClick={() => window.open(objectUrl, '_blank')}
                     />
                     {fileName && (
-                        <p className="text-[10px] text-on-surface-variant/60 mt-1 truncate max-w-xs">
+                        <p className="text-[10px] text-gray-400 mt-1 truncate max-w-xs">
                             {fileName} {fileSize ? `· ${prettyBytes(fileSize)}` : ''}
                         </p>
                     )}
@@ -132,7 +132,7 @@ export default function AttachmentViewer({ attachmentUrl, attachmentMeta }) {
     if (isAudio) {
         if (loading) {
             return (
-                <div className="flex items-center gap-2 py-2 text-on-surface-variant text-xs">
+                <div className="flex items-center gap-2 py-2 text-gray-500 text-xs">
                     <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
                     Decrypting audio...
                 </div>
@@ -150,19 +150,19 @@ export default function AttachmentViewer({ attachmentUrl, attachmentMeta }) {
             const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
             return (
                 <div className="mt-1.5 mb-1">
-                    <div className="flex items-center gap-3 px-4 py-3 bg-surface-container-high/50 rounded-lg border border-white/5 max-w-xs">
+                    <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 rounded-xl border border-gray-100 max-w-xs">
                         <button
                             onClick={togglePlayPause}
-                            className="w-9 h-9 rounded-full bg-primary/20 hover:bg-primary/30 flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                            className="w-9 h-9 rounded-full bg-[#1D7A54]/10 hover:bg-[#1D7A54]/20 flex items-center justify-center transition-colors cursor-pointer shrink-0"
                         >
-                            <span className="material-symbols-outlined text-primary text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>
+                            <span className="material-symbols-outlined text-[#1D7A54] text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>
                                 {isPlaying ? 'pause' : 'play_arrow'}
                             </span>
                         </button>
                         <div className="flex-1 flex flex-col gap-1.5 min-w-0">
                             {/* Progress bar */}
                             <div
-                                className="w-full h-1.5 bg-surface-container-lowest rounded-full overflow-hidden cursor-pointer"
+                                className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden cursor-pointer"
                                 onClick={(e) => {
                                     const audio = audioRef.current;
                                     if (!audio || !duration) return;
@@ -171,15 +171,15 @@ export default function AttachmentViewer({ attachmentUrl, attachmentMeta }) {
                                 }}
                             >
                                 <div
-                                    className="h-full bg-primary rounded-full transition-[width] duration-100"
+                                    className="h-full bg-[#1D7A54] rounded-full transition-[width] duration-100"
                                     style={{ width: `${progress}%` }}
                                 />
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-[10px] text-on-surface-variant font-mono">
+                                <span className="text-[10px] text-gray-400 font-mono">
                                     {formatDuration(currentTime)}
                                 </span>
-                                <span className="text-[10px] text-on-surface-variant font-mono">
+                                <span className="text-[10px] text-gray-400 font-mono">
                                     {formatDuration(duration)}
                                 </span>
                             </div>
@@ -204,21 +204,21 @@ export default function AttachmentViewer({ attachmentUrl, attachmentMeta }) {
             <button
                 onClick={handleDownload}
                 disabled={loading}
-                className="flex items-center gap-3 px-4 py-3 bg-surface-container-high/50 hover:bg-surface-container-highest/50 rounded-lg transition-colors cursor-pointer border border-white/5 max-w-xs"
+                className="flex items-center gap-3 px-4 py-3 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer border border-gray-100 max-w-xs"
             >
-                <span className="material-symbols-outlined text-primary text-2xl">
+                <span className="material-symbols-outlined text-[#1D7A54] text-2xl">
                     {loading ? 'progress_activity' : 'attach_file'}
                 </span>
                 <div className="flex flex-col items-start overflow-hidden">
-                    <span className="text-sm text-on-surface font-medium truncate max-w-[200px]">
+                    <span className="text-sm text-gray-800 font-medium truncate max-w-[200px]">
                         {fileName || 'Attachment'}
                     </span>
-                    <span className="text-[10px] text-on-surface-variant">
+                    <span className="text-[10px] text-gray-500">
                         {loading ? 'Decrypting...' : (error || prettyBytes(fileSize || 0) || 'Download')}
                     </span>
                 </div>
                 {!loading && objectUrl && (
-                    <span className="material-symbols-outlined text-primary text-lg ml-auto">download</span>
+                    <span className="material-symbols-outlined text-[#1D7A54] text-lg ml-auto">download</span>
                 )}
             </button>
         </div>
