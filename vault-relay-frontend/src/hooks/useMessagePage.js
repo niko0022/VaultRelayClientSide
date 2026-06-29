@@ -4,8 +4,11 @@ import { useConversations } from './useConversations';
 import { useMessages } from './useMessages';
 import { useMessageActions } from '../components/Messages/MessageContextMenu';
 import { chatService } from '../services/chatService';
+import { useToast } from '../contexts/ToastContext';
+import { resolveConversationName } from '../utils/conversationUtils';
 
 export function useMessagePage(user) {
+    const { showToast } = useToast();
     const location = useLocation();
 
     // --- Conversation List State ---
@@ -33,14 +36,11 @@ export function useMessagePage(user) {
     const isGroupChat = activeConv?.type === 'GROUP';
 
     if (activeConv && user) {
-        if (isGroupChat) {
-            recipientName = activeConv.title || 'Group Chat';
-        } else {
-            const isUserA = activeConv.participantAId === user.id;
-            const participant = isUserA ? activeConv.participantB : activeConv.participantA;
-            recipientId = isUserA ? activeConv.participantBId : activeConv.participantAId;
-            recipientName = participant?.displayName || participant?.username;
-            recipientUser = participant;
+        recipientName = resolveConversationName(activeConv, user.id) || (isGroupChat ? 'Group Chat' : 'Unknown User');
+        if (!isGroupChat) {
+            const peer = activeConv.participantAId === user.id ? activeConv.participantB : activeConv.participantA;
+            recipientUser = peer;
+            recipientId = activeConv.participantAId === user.id ? activeConv.participantBId : activeConv.participantAId;
         }
     }
 
@@ -163,7 +163,7 @@ export function useMessagePage(user) {
                 await sendSecureMessage(text, file);
             }
         } catch (err) {
-            alert(err.message);
+            showToast(err.message);
         }
     };
 
