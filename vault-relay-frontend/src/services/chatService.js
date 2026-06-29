@@ -217,6 +217,38 @@ class ChatService {
         });
     }
 
+    // --- Devices API ---
+
+    async registerDevice({ deviceName }) {
+        return await this._fetch('/devices/register', {
+            method: 'POST',
+            body: { deviceName }
+        });
+    }
+
+    async listDevices() {
+        return await this._fetch('/devices');
+    }
+
+    async unlinkDevice(deviceId) {
+        return await this._fetch(`/devices/${deviceId}`, {
+            method: 'DELETE'
+        });
+    }
+
+    async requestRecoveryCode() {
+        return await this._fetch('/devices/recover/request', {
+            method: 'POST'
+        });
+    }
+
+    async verifyRecoveryCode(code) {
+        return await this._fetch('/devices/recover/verify', {
+            method: 'POST',
+            body: { code }
+        });
+    }
+
 }
 
 export const chatService = new ChatService();
