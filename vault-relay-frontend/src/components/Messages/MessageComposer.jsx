@@ -206,7 +206,7 @@ export default function MessageComposer({
                 {/* Send button */}
                 <button
                     onClick={handleSend}
-                    disabled={!composerText.trim() && !selectedFile || !isSessionReady || isBlocked}
+                    disabled={(!composerText.trim() && !selectedFile) || !isSessionReady || isBlocked}
                     className="w-12 h-12 bg-black text-white rounded-full flex items-center justify-center hover:bg-gray-800 transition-colors shadow-md ml-2 flex-shrink-0 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed active:scale-95"
                 >
                     {editingMessage ? (
