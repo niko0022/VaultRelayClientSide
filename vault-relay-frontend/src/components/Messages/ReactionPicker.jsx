@@ -30,14 +30,14 @@ export default function ReactionPicker({ onReact, disabled = false }) {
     return (
         <div
             ref={containerRef}
-            className={`flex items-center gap-0.5 bg-surface-container-high border border-white/5 rounded-full px-1.5 py-1 shadow-xl backdrop-blur-md transition-all duration-200 ${disabled ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}
+            className={`flex items-center gap-0.5 bg-white border border-gray-200 rounded-full px-1.5 py-1 shadow-lg transition-all duration-200 ${disabled ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}
         >
             {PRESET_EMOJIS.map(emoji => (
                 <button
                     key={emoji}
                     type="button"
                     onClick={() => onReact(emoji)}
-                    className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-white/10 hover:scale-110 active:scale-125 transition-all text-base select-none cursor-pointer"
+                    className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 hover:scale-110 active:scale-125 transition-all text-base select-none cursor-pointer"
                 >
                     {emoji}
                 </button>
@@ -47,7 +47,7 @@ export default function ReactionPicker({ onReact, disabled = false }) {
                 <button
                     type="button"
                     onClick={() => setShowPicker(prev => !prev)}
-                    className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-white/10 hover:scale-110 active:scale-125 transition-all text-sm text-primary/80 font-bold select-none cursor-pointer"
+                    className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 hover:scale-110 active:scale-125 transition-all text-sm text-gray-400 hover:text-gray-700 font-bold select-none cursor-pointer"
                     title="More emojis"
                 >
                     +
@@ -60,7 +60,7 @@ export default function ReactionPicker({ onReact, disabled = false }) {
                                 onReact(emojiData.emoji);
                                 setShowPicker(false);
                             }}
-                            theme="dark"
+                            theme="light"
                             emojiStyle="native"
                             lazyLoadEmojis={true}
                             searchPlaceholder="Search emoji..."
