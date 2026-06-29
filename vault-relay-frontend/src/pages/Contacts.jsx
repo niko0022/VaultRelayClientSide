@@ -36,16 +36,15 @@ export default function Contacts() {
     } = useContactActions(user);
 
     return (
-        <div className="bg-[#BDE0D8] text-gray-900 font-body h-screen flex items-center justify-center p-4 md:p-6 lg:p-8 overflow-hidden">
-            <div className="bg-[#F8FAF9] w-full h-full max-w-[1600px] rounded-3xl md:rounded-[2.5rem] overflow-hidden flex shadow-xl shadow-teal-900/10">
-
-                {/* Side Navigation Rail */}
-                <SideNavBar className="relative h-full" />
-
-                <div className="flex flex-1 h-full overflow-hidden">
-
-                    {/* Left Panel: Contact List */}
-                    <main className="flex-1 lg:flex-none lg:w-88 xl:w-96 bg-[#F1F4F3] flex flex-col border-r border-gray-200/60">
+        <div
+            className="text-gray-900 font-body overflow-hidden h-screen flex p-4 gap-3"
+            style={{ background: 'linear-gradient(135deg, #d4f0ee 0%, #e8f5e8 25%, #f0ece0 50%, #f5e8dc 75%, #eddee8 100%)' }}
+        >
+            {/* Left: Nav rail + Contact list — both sit on the gradient */}
+            <div className="flex h-full flex-shrink-0">
+                <SideNavBar />
+                {/* Left Panel: Contact List */}
+                <main className="w-80 lg:w-96 flex-shrink-0 bg-white rounded-2xl flex flex-col overflow-hidden shadow-xl shadow-black/10">
 
                         {/* Header */}
                         <div className="px-6 pt-7 pb-4 border-b border-gray-200/60">
@@ -149,17 +148,16 @@ export default function Contacts() {
                                 </div>
                             )}
                         </div>
-                    </main>
-
-                    {/* Right Panel: Contact Details */}
-                    <ContactDetailView
-                        selectedFriend={selectedFriend}
-                        handleStartMessage={handleStartMessage}
-                        handleBlockFriend={handleBlockFriend}
-                        handleRemoveFriend={handleRemoveFriend}
-                    />
-                </div>
+                </main>
             </div>
+
+            {/* Right Panel: Contact Details */}
+            <ContactDetailView
+                selectedFriend={selectedFriend}
+                handleStartMessage={handleStartMessage}
+                handleBlockFriend={handleBlockFriend}
+                handleRemoveFriend={handleRemoveFriend}
+            />
         </div>
     );
 }
