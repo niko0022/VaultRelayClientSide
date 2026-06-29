@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import SideNavBar from '../components/Shared/SideNavBar';
 import { useAuth } from '../contexts/AuthContext';
 import { useMessagePage } from '../hooks/useMessagePage';
@@ -9,9 +10,11 @@ import MessageBubble from '../components/Messages/MessageBubble';
 import ConversationSidebar from '../components/Messages/ConversationSidebar';
 import ActiveChatHeader from '../components/Messages/ActiveChatHeader';
 import MessageComposer from '../components/Messages/MessageComposer';
+import MediaGalleryPanel from '../components/Messages/MediaGalleryPanel';
 
 export default function Messages() {
     const { user } = useAuth();
+    const [mediaPanelOpen, setMediaPanelOpen] = useState(false);
 
     const {
         conversations, selectedConversationId, selectConversation, convsLoading,
@@ -24,15 +27,20 @@ export default function Messages() {
         reactions, reactToMessage
     } = useMessagePage(user);
 
+    // Close media panel when conversation changes
+    useEffect(() => {
+        setMediaPanelOpen(false);
+    }, [selectedConversationId]);
 
     return (
-        <div className="bg-[#BDE0D8] text-gray-900 font-body overflow-hidden h-screen flex items-center justify-center p-4 md:p-6 lg:p-8">
-            <div className="bg-[#F8FAF9] w-full h-full max-w-[1600px] rounded-3xl md:rounded-[2.5rem] lg:rounded-[3.5rem] flex overflow-hidden shadow-2xl relative border border-white/20">
-                <SideNavBar className="relative h-full" />
-
-                <main className="flex flex-1 h-full overflow-hidden">
-                    {/* Secondary Pane: Conversation List */}
-                    <ConversationSidebar
+        <div
+            className="text-gray-900 font-body overflow-hidden h-screen flex p-4 gap-3"
+            style={{ background: 'linear-gradient(135deg, #d4f0ee 0%, #e8f5e8 25%, #f0ece0 50%, #f5e8dc 75%, #eddee8 100%)' }}
+        >
+            {/* Left: Nav rail + Conversation list — both sit on the gradient */}
+            <div className="flex h-full flex-shrink-0">
+                <SideNavBar />
+                <ConversationSidebar
                     setShowGroupModal={setShowGroupModal}
                     convsLoading={convsLoading}
                     conversations={conversations}
@@ -40,17 +48,19 @@ export default function Messages() {
                     selectedConversationId={selectedConversationId}
                     selectConversation={selectConversation}
                 />
+            </div>
 
-                {/* Main Area: Active Chat */}
-                <section className="flex-1 h-full flex flex-col bg-[#F1F4F3] overflow-hidden relative">
-                    {!selectedConversationId ? (
-                        <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-[#F8FAF9]">
-                            <span className="material-symbols-outlined text-6xl text-gray-300 mb-4">forum</span>
-                            <h2 className="text-xl font-bold text-gray-900">Select a Conversation</h2>
-                            <p className="text-sm text-gray-500 mt-2 max-w-sm">Choose an active chat from the sidebar or start a new secure exchange.</p>
-                        </div>
-                    ) : (
-                        <>
+            {/* Right: Active Chat — white floating card with rounded corners */}
+            <section className="flex-1 h-full flex bg-white rounded-2xl overflow-hidden shadow-xl shadow-black/10 relative">
+                {!selectedConversationId ? (
+                    <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
+                        <span className="material-symbols-outlined text-6xl text-gray-300 mb-4">forum</span>
+                        <h2 className="text-xl font-bold text-gray-900">Select a Conversation</h2>
+                        <p className="text-sm text-gray-500 mt-2 max-w-sm">Choose an active chat from the sidebar or start a new secure exchange.</p>
+                    </div>
+                ) : (
+                    <>
+                        <div className="flex-1 h-full flex flex-col min-w-0 relative">
                             {/* TopAppBar */}
                             <ActiveChatHeader
                                 recipientName={recipientName}
@@ -59,6 +69,8 @@ export default function Messages() {
                                 menuOpen={menuOpen}
                                 setMenuOpen={setMenuOpen}
                                 onDeleteConversation={handleDeleteConversation}
+                                onToggleMediaPanel={() => setMediaPanelOpen(!mediaPanelOpen)}
+                                mediaPanelOpen={mediaPanelOpen}
                             />
 
                             {/* Message History */}
@@ -80,7 +92,7 @@ export default function Messages() {
                                 )}
 
                                 <div className="flex justify-center my-4">
-                                    <div className="bg-white/80 backdrop-blur-sm px-4 py-1.5 rounded-full text-[10px] uppercase tracking-[0.2em] text-gray-500 font-semibold border border-gray-100/50 shadow-sm">
+                                    <div className="bg-gray-50 px-4 py-1.5 rounded-full text-[10px] uppercase tracking-[0.2em] text-gray-400 font-semibold border border-gray-100 shadow-sm">
                                         Communication Tunnel Established
                                     </div>
                                 </div>
@@ -131,13 +143,19 @@ export default function Messages() {
                                 blockedById={activeConv?.blockedById}
                                 currentUserId={user?.id}
                             />
-                        </>
-                    )}
-                </section>
-            </main>
-        </div>
+                        </div>
 
-        {showGroupModal && <CreateGroupModal onClose={() => setShowGroupModal(false)} />}
+                        {mediaPanelOpen && (
+                            <MediaGalleryPanel
+                                conversationId={selectedConversationId}
+                                onClose={() => setMediaPanelOpen(false)}
+                            />
+                        )}
+                    </>
+                )}
+            </section>
+
+            {showGroupModal && <CreateGroupModal onClose={() => setShowGroupModal(false)} />}
 
             <MessageContextMenu
                 contextMenu={contextMenu}
@@ -149,3 +167,4 @@ export default function Messages() {
         </div>
     );
 }
+
