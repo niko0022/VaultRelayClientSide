@@ -8,6 +8,7 @@ import { processMessages as processMessagesCore } from './messageProcessing';
 import { sendSecureMessage as sendSecureMessageCore } from './messageSending';
 import { sendReaction } from './reactionSending';
 import { editSecureMessage as editSecureMessageCore, deleteSecureMessage as deleteSecureMessageCore } from './messageActions';
+import { useToast } from '../contexts/ToastContext';
 
 // Helper to deduce remote user in a 1-to-1 chat
 function getDirectRemoteUserId(conversation, currentUserId) {
@@ -18,6 +19,7 @@ function getDirectRemoteUserId(conversation, currentUserId) {
 }
 
 export function useMessages(conversation, currentUserId) {
+    const { showToast } = useToast();
     const [messages, setMessages] = useState([]);
     const [reactions, setReactions] = useState({});
     const [loading, setLoading] = useState(false);
@@ -34,7 +36,13 @@ export function useMessages(conversation, currentUserId) {
     const {
         isReady: directReady, hasSession: directHasSession, establishSession: directEstablish,
         encryptMessage: directEncrypt, decryptMessage: directDecrypt
-    } = useSignalSession(remoteDirectUserId, 1);
+    } = useSignalSession(remoteDirectUserId);
+
+    // -- Self-Sync Session API --
+    const {
+        isReady: selfReady, hasSession: selfHasSession, establishSession: selfEstablish,
+        encryptMessage: selfEncrypt, decryptMessage: selfDecrypt
+    } = useSignalSession(currentUserId);
 
     // -- Group Session API --
     const {
@@ -43,7 +51,7 @@ export function useMessages(conversation, currentUserId) {
         clearCiphersCache
     } = useGroupSignalSession(currentUserId);
 
-    const isReady = directReady && groupReady;
+    const isReady = directReady && groupReady && selfReady;
 
     // Track whether we've fired off our SenderKey distribution
     const distributedRef = useRef(false);
@@ -66,6 +74,17 @@ export function useMessages(conversation, currentUserId) {
                         const bundles = response.bundles || response;
                         await establishGroupSessions(bundles);
                     }
+                } else if (remoteDirectUserId) {
+                    const bundles = await chatService.getPreKeyBundle(remoteDirectUserId);
+                    await directEstablish(bundles);
+                }
+
+                // Establish sessions with our own other devices for self-sync
+                const myBundles = await chatService.getPreKeyBundle(currentUserId);
+                const myDeviceId = await signalStoreAdapter.getDeviceId();
+                const otherMyBundles = myBundles.filter(b => b.deviceId !== myDeviceId);
+                if (otherMyBundles.length > 0) {
+                    await selfEstablish(otherMyBundles);
                 }
             } catch (err) {
                 console.error("Session Setup Error:", err);
@@ -74,7 +93,7 @@ export function useMessages(conversation, currentUserId) {
         };
 
         initSession();
-    }, [conversation, isReady, currentUserId, remoteDirectUserId, directHasSession, isGroup, establishGroupSessions, directEstablish]);
+    }, [conversation, isReady, currentUserId, remoteDirectUserId, directHasSession, selfHasSession, isGroup, establishGroupSessions, directEstablish, selfEstablish]);
 
     const onReactionUpdate = useCallback(({ messageId, userId, emoji, isRemove }) => {
         setReactions(prev => {
@@ -99,8 +118,9 @@ export function useMessages(conversation, currentUserId) {
             isReady, isGroup, conversationId, currentUserId,
             decryptedCacheRef, directDecrypt, decryptGroupMessage, processGroupDistribution,
             onReactionUpdate,
+            selfDecrypt,
         });
-    }, [isReady, isGroup, conversationId, currentUserId, directHasSession, decryptGroupMessage, directDecrypt, processGroupDistribution, onReactionUpdate]);
+    }, [isReady, isGroup, conversationId, currentUserId, decryptGroupMessage, directDecrypt, processGroupDistribution, onReactionUpdate, selfDecrypt]);
 
     const processMessagesRef = useRef(processMessages);
     useEffect(() => { processMessagesRef.current = processMessages; }, [processMessages]);
@@ -152,7 +172,7 @@ export function useMessages(conversation, currentUserId) {
         if (hasOlder && nextCursor && !loading) loadMessages(nextCursor);
     }, [hasOlder, nextCursor, loading, loadMessages]);
 
-    const handleMessagesRead = ({ conversationId: eventConversationId, userId }) => {
+    const handleMessagesRead = useCallback(({ conversationId: eventConversationId, userId }) => {
         if (eventConversationId !== conversationId) return;
         setMessages(prev => prev.map(msg => {
             if (msg.senderId !== userId && !msg.receipts?.some(r => r.userId === userId)) {
@@ -160,7 +180,7 @@ export function useMessages(conversation, currentUserId) {
             }
             return msg;
         }));
-    }
+    }, [conversationId]);
 
     // --- Reactions sending ---
     const lastReactionTimeRef = useRef(0);
@@ -197,7 +217,8 @@ export function useMessages(conversation, currentUserId) {
             await sendReaction(emoji, targetMessage, isRemove, {
                 conversationId, isGroup, conversation, currentUserId,
                 directHasSession, directEncrypt, directEstablish, remoteDirectUserId,
-                encryptGroupMessage, generateGroupDistributionMap, distributedRef
+                encryptGroupMessage, generateGroupDistributionMap, distributedRef,
+                selfHasSession, selfEncrypt
             });
         } catch (err) {
             console.error('Failed to react to message:', err);
@@ -212,12 +233,12 @@ export function useMessages(conversation, currentUserId) {
                 }
                 return { ...prev, [messageId]: newList };
             });
-            alert(err.message || 'Failed to send reaction');
+            showToast(err.message || 'Failed to send reaction');
         }
     }, [
         messages, reactions, conversationId, isGroup, conversation, currentUserId,
         directHasSession, directEncrypt, directEstablish, remoteDirectUserId,
-        encryptGroupMessage, generateGroupDistributionMap
+        encryptGroupMessage, generateGroupDistributionMap, selfHasSession, selfEncrypt
     ]);
 
     // --- Sending (delegates to messageSending.js) ---
@@ -227,10 +248,12 @@ export function useMessages(conversation, currentUserId) {
             directHasSession, directEncrypt, directEstablish, remoteDirectUserId,
             encryptGroupMessage, generateGroupDistributionMap, distributedRef,
             setMessages, setError,
+            selfHasSession, selfEncrypt
         });
     }, [
         conversationId, isGroup, conversation, currentUserId, directHasSession,
-        directEncrypt, encryptGroupMessage, generateGroupDistributionMap
+        directEncrypt, directEstablish, remoteDirectUserId, encryptGroupMessage,
+        generateGroupDistributionMap, selfHasSession, selfEncrypt
     ]);
 
     // --- Edit (delegates to messageActions.js) ---
@@ -239,8 +262,12 @@ export function useMessages(conversation, currentUserId) {
             conversationId, messages, currentUserId, isGroup,
             directHasSession, directEncrypt, encryptGroupMessage,
             decryptedCacheRef, setMessages, setError,
+            selfHasSession, selfEncrypt
         });
-    }, [conversationId, messages, currentUserId, isGroup, directHasSession, directEncrypt, encryptGroupMessage]);
+    }, [
+        conversationId, messages, currentUserId, isGroup, directHasSession,
+        directEncrypt, encryptGroupMessage, selfHasSession, selfEncrypt
+    ]);
 
     // --- Delete (delegates to messageActions.js) ---
     const deleteSecureMessage = useCallback(async (messageId) => {
@@ -269,7 +296,8 @@ export function useMessages(conversation, currentUserId) {
 
         const handleIncomingMessage = async ({ message }) => {
             if (message.conversationId !== conversationId) return;
-            if (message.senderId === currentUserId) return; // Handled optimistically
+            const myDeviceId = await signalStoreAdapter.getDeviceId();
+            if (message.senderId === currentUserId && message.senderDeviceId === myDeviceId) return; // Handled optimistically
 
             const [processed] = await processMessagesRef.current([message]);
             if (processed) {
@@ -285,14 +313,39 @@ export function useMessages(conversation, currentUserId) {
             socketClient.on('message', handleIncomingMessage),
             socketClient.on('message:edited', async (editedMessage) => {
                 if (editedMessage.conversationId !== conversationId) return;
-                if (editedMessage.senderId === currentUserId) return;
+                const myDeviceId = await signalStoreAdapter.getDeviceId();
+                if (editedMessage.senderId === currentUserId && editedMessage.senderDeviceId === myDeviceId) return;
 
                 try {
                     let plaintext;
                     if (isGroup) {
-                        plaintext = await decryptGroupMessage(editedMessage.senderId, conversationId, editedMessage.content);
+                        plaintext = await decryptGroupMessage(editedMessage.senderId, editedMessage.senderDeviceId, conversationId, editedMessage.content);
                     } else {
-                        plaintext = await directDecrypt(editedMessage.content);
+                        let slice = editedMessage.content;
+                        if (slice && typeof slice === 'string' && slice.startsWith('{')) {
+                            try {
+                                const parsedMap = JSON.parse(slice);
+                                if (parsedMap && typeof parsedMap === 'object' && !parsedMap.type) {
+                                    const myAddressKey = `${currentUserId}.${myDeviceId}`;
+                                    slice = parsedMap[myAddressKey];
+                                }
+                            } catch (e) {
+                                // Not a JSON map
+                            }
+                        }
+                        if (!slice) {
+                            throw new Error('No slice for this device');
+                        }
+
+                        if (editedMessage.senderId === currentUserId) {
+                            if (selfDecrypt) {
+                                plaintext = await selfDecrypt(slice, editedMessage.senderDeviceId);
+                            } else {
+                                throw new Error('Self decrypt not available');
+                            }
+                        } else {
+                            plaintext = await directDecrypt(slice, editedMessage.senderDeviceId);
+                        }
                     }
 
                     const decryptedEdit = {
@@ -331,7 +384,7 @@ export function useMessages(conversation, currentUserId) {
             unsubs.forEach(unsub => unsub());
             setTypingUsers(new Set());
         };
-    }, [conversationId, currentUserId, clearCiphersCache]);
+    }, [conversationId, currentUserId, clearCiphersCache, handleMessagesRead, isGroup, decryptGroupMessage, directDecrypt, selfDecrypt]);
 
     // Initial message load
     useEffect(() => {
