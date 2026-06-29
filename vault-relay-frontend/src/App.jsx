@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { ToastProvider } from './contexts/ToastContext';
 import ProtectedRoute from './components/Shared/ProtectedRoute';
 import Home from './pages/Home';
 import Login from './pages/Login';
@@ -11,8 +12,9 @@ import UserSetting from './pages/UserSetting';
 
 function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
+    <ToastProvider>
+      <AuthProvider>
+        <BrowserRouter>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
@@ -41,6 +43,7 @@ function App() {
         </Routes>
       </BrowserRouter>
     </AuthProvider>
+  </ToastProvider>
   );
 }
 
