@@ -59,7 +59,7 @@ export function AuthProvider({ children }) {
             await deleteAccount();
             await signalStoreAdapter.deleteAllLocalData();
             localStorage.clear();
-            socketClient.disconnect();
+            socketClient.reset();
             setUser(null);
             clearEvents();
         } catch (err) {
