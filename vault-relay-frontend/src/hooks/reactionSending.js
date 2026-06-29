@@ -14,6 +14,7 @@ export async function sendReaction(emoji, targetMessage, isRemove, {
     conversationId, isGroup, conversation, currentUserId,
     directHasSession, directEncrypt, directEstablish, remoteDirectUserId,
     encryptGroupMessage, generateGroupDistributionMap, distributedRef,
+    selfHasSession, selfEncrypt,
 }) {
     if (!conversationId) return;
 
@@ -50,7 +51,17 @@ export async function sendReaction(emoji, targetMessage, isRemove, {
             const bundle = await chatService.getPreKeyBundle(remoteDirectUserId);
             await directEstablish(bundle);
         }
-        encryptedPayload = await directEncrypt(plaintextToEncrypt);
+        const recipientDeviceMap = await directEncrypt(plaintextToEncrypt);
+
+        let selfDeviceMap = {};
+        if (selfHasSession && selfEncrypt) {
+            try {
+                selfDeviceMap = await selfEncrypt(plaintextToEncrypt);
+            } catch (e) {
+                console.warn('Failed to encrypt reaction for self-sync:', e);
+            }
+        }
+        encryptedPayload = { ...recipientDeviceMap, ...selfDeviceMap };
     }
 
     const payload = {
