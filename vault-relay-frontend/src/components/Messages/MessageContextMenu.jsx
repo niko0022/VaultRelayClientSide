@@ -26,13 +26,13 @@ export default function MessageContextMenu({
 
     return (
         <div
-            className="fixed z-[100] bg-surface-container-high border border-white/10 rounded-lg overflow-hidden shadow-2xl py-1 min-w-[160px]"
+            className="fixed z-[100] bg-white border border-gray-150 rounded-2xl shadow-xl py-2 min-w-[170px]"
             style={{ top: contextMenu.y, left: contextMenu.x }}
         >
             {canEdit && (
                 <button
                     onClick={() => onEdit(targetMsg)}
-                    className="w-full text-left px-4 py-2.5 text-sm text-on-surface hover:bg-white/5 transition-colors cursor-pointer flex items-center gap-3"
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer flex items-center gap-3"
                 >
                     <span className="material-symbols-outlined text-[18px]">edit</span>
                     Edit Message
@@ -40,7 +40,7 @@ export default function MessageContextMenu({
             )}
             <button
                 onClick={() => onDelete(contextMenu.messageId)}
-                className="w-full text-left px-4 py-2.5 text-sm text-error hover:bg-white/5 transition-colors cursor-pointer flex items-center gap-3"
+                className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50/50 transition-colors cursor-pointer flex items-center gap-3"
             >
                 <span className="material-symbols-outlined text-[18px]">delete</span>
                 Delete Message
