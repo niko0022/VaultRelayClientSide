@@ -103,12 +103,16 @@ export function useContactActions(user) {
         }
     };
 
-    const handleCopyCode = () => {
+    const handleCopyCode = async () => {
         if (!user?.friendCode) return;
-        navigator.clipboard.writeText(user.friendCode);
-        setCopied(true);
-        clearTimeout(copyTimeoutRef.current);
-        copyTimeoutRef.current = setTimeout(() => setCopied(false), 2000);
+        try {
+            await navigator.clipboard.writeText(user.friendCode);
+            setCopied(true);
+            clearTimeout(copyTimeoutRef.current);
+            copyTimeoutRef.current = setTimeout(() => setCopied(false), 2000);
+        } catch (err) {
+            console.error('Failed to copy friend code to clipboard:', err);
+        }
     };
 
     return {
