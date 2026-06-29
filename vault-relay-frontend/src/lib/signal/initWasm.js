@@ -34,10 +34,39 @@ export function ensureWasmReady(init, initIdentity) {
  * If not (fresh device / first login), generates a full pre-key bundle and uploads it.
  * Runs at most once per session thanks to the singleton above.
  */
-async function uploadKeysIfNeeded() {
+function detectDeviceName() {
+    const ua = navigator.userAgent;
+    let browser = 'Unknown Browser';
+    let os = 'Unknown OS';
+
+    if (ua.includes('Firefox')) browser = 'Firefox';
+    else if (ua.includes('Edg')) browser = 'Edge';
+    else if (ua.includes('Chrome')) browser = 'Chrome';
+    else if (ua.includes('Safari')) browser = 'Safari';
+
+    if (ua.includes('Windows')) os = 'Windows';
+    else if (ua.includes('Macintosh') || ua.includes('Mac OS')) os = 'macOS';
+    else if (ua.includes('Linux')) os = 'Linux';
+    else if (ua.includes('Android')) os = 'Android';
+    else if (ua.includes('iPhone') || ua.includes('iPad')) os = 'iOS';
+
+    return `${browser} on ${os}`;
+}
+
+export async function uploadKeysIfNeeded() {
     try {
         const { chatService } = await import('../../services/chatService');
         const { uint8ArrayToBase64 } = await import('./signalUtils');
+
+        let deviceId = await signalStoreAdapter.getDeviceId();
+        if (!deviceId) {
+            const deviceName = detectDeviceName();
+            const result = await chatService.registerDevice({ deviceName });
+            deviceId = result.deviceId;
+            await signalStoreAdapter.setDeviceId(deviceId);
+            await signalStoreAdapter.setIsPrimaryDevice(result.isPrimary || (deviceId === 1));
+            console.log(`[initWasm] Registered device ID ${deviceId} (${deviceName})`);
+        }
 
         const identityKeyPairBytes = await signalStoreAdapter.getIdentityKeyPair();
         const localRegId = await signalStoreAdapter.getLocalRegistrationId();
@@ -80,6 +109,7 @@ async function uploadKeysIfNeeded() {
         const identityPublicKey = extractIdentityPublicKey(identityKeyPairBytes);
 
         await chatService.uploadKeys({
+            deviceId,
             registrationId: localRegId,
             identityKey: uint8ArrayToBase64(identityPublicKey),
             oneTimePreKeys: preKeys.map(pk => ({
