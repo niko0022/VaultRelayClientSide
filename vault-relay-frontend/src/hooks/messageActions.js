@@ -14,6 +14,7 @@ export async function editSecureMessage(messageId, newPlaintext, {
     conversationId, messages, currentUserId, isGroup,
     directHasSession, directEncrypt, encryptGroupMessage,
     decryptedCacheRef, setMessages, setError,
+    selfHasSession, selfEncrypt
 }) {
     if (!conversationId) return;
 
@@ -33,7 +34,17 @@ export async function editSecureMessage(messageId, newPlaintext, {
             encryptedPayload = await encryptGroupMessage(conversationId, newPlaintext);
         } else {
             if (!directHasSession) throw new Error('1-to-1 session not established');
-            encryptedPayload = await directEncrypt(newPlaintext);
+            const recipientDeviceMap = await directEncrypt(newPlaintext);
+
+            let selfDeviceMap = {};
+            if (selfHasSession && selfEncrypt) {
+                try {
+                    selfDeviceMap = await selfEncrypt(newPlaintext);
+                } catch (e) {
+                    console.warn('Failed to encrypt edit for self-sync:', e);
+                }
+            }
+            encryptedPayload = { ...recipientDeviceMap, ...selfDeviceMap };
         }
 
         // Send via socket
