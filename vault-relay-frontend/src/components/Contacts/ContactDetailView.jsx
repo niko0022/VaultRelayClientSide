@@ -5,7 +5,7 @@ export default function ContactDetailView({
     handleRemoveFriend
 }) {
     return (
-        <section className="hidden md:flex flex-1 bg-white flex-col relative overflow-hidden">
+        <section className="hidden md:flex flex-1 bg-white rounded-2xl flex-col relative overflow-hidden shadow-xl shadow-black/10">
             {/* Subtle background accent */}
             <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-teal-50 blur-[120px] -z-0 rounded-full pointer-events-none opacity-60"></div>
 
