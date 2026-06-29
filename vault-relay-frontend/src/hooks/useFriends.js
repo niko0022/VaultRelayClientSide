@@ -34,96 +34,62 @@ export function useFriends() {
     // --- Actions ---
 
     const sendRequest = useCallback(async (friendCode) => {
-        try {
-            const result = await chatService.sendFriendRequest(friendCode);
+        const result = await chatService.sendFriendRequest(friendCode);
 
-            // If the backend auto-accepted (they already sent us a request), refresh the list
-            if (result.type === 'accepted') {
-                await loadFriends();
-            }
-
-            return result;
-        } catch (err) {
-            throw err;
+        // If the backend auto-accepted (they already sent us a request), refresh the list
+        if (result.type === 'accepted') {
+            await loadFriends();
         }
+
+        return result;
     }, [loadFriends]);
 
     const acceptRequest = useCallback(async (friendshipId) => {
-        try {
-            const result = await chatService.acceptFriendRequest(friendshipId);
+        const result = await chatService.acceptFriendRequest(friendshipId);
 
-            // Move from pending to friends list
-            setPendingRequests(prev => prev.filter(r => r.friendshipId !== friendshipId));
+        // Move from pending to friends list
+        setPendingRequests(prev => prev.filter(r => r.friendshipId !== friendshipId));
 
-            // Refresh friends to get the full friend object from the server
-            await loadFriends();
+        // Refresh friends to get the full friend object from the server
+        await loadFriends();
 
-            return result;
-        } catch (err) {
-            console.error('Failed to accept friend request:', err);
-            throw err;
-        }
+        return result;
     }, [loadFriends]);
 
     const cancelRequest = useCallback(async (friendshipId) => {
-        try {
-            await chatService.cancelFriendRequest(friendshipId);
-            setPendingRequests(prev => prev.filter(r => r.friendshipId !== friendshipId));
-        } catch (err) {
-            console.error('Failed to cancel friend request:', err);
-            throw err;
-        }
+        await chatService.cancelFriendRequest(friendshipId);
+        setPendingRequests(prev => prev.filter(r => r.friendshipId !== friendshipId));
     }, []);
 
     const declineRequest = useCallback(async (friendshipId) => {
-        try {
-            await chatService.declineFriendRequest(friendshipId);
-            setPendingRequests(prev => prev.filter(r => r.friendshipId !== friendshipId));
-        } catch (err) {
-            console.error('Failed to decline friend request:', err);
-            throw err;
-        }
+        await chatService.declineFriendRequest(friendshipId);
+        setPendingRequests(prev => prev.filter(r => r.friendshipId !== friendshipId));
     }, []);
 
     const removeFriend = useCallback(async (friendshipId) => {
-        try {
-            await chatService.removeFriend(friendshipId);
-            setFriends(prev => prev.filter(f => f.friendshipId !== friendshipId));
-        } catch (err) {
-            console.error('Failed to remove friend:', err);
-            throw err;
-        }
+        await chatService.removeFriend(friendshipId);
+        setFriends(prev => prev.filter(f => f.friendshipId !== friendshipId));
     }, []);
 
     const blockFriend = useCallback(async (userId) => {
-        try {
-            const result = await chatService.blockUser(userId);
-            // Move from friends list to blocked list
-            const blockedFriend = friends.find(f => f.user.id === userId);
-            setFriends(prev => prev.filter(f => f.user.id !== userId));
-            if (blockedFriend) {
-                setBlockedUsers(prev => [...prev, {
-                    friendshipId: result.friendship?.id || blockedFriend.friendshipId,
-                    user: blockedFriend.user,
-                    blockedAt: new Date().toISOString(),
-                }]);
-            }
-        } catch (err) {
-            console.error('Failed to block user:', err);
-            throw err;
+        const result = await chatService.blockUser(userId);
+        // Move from friends list to blocked list
+        const blockedFriend = friends.find(f => f.user.id === userId);
+        setFriends(prev => prev.filter(f => f.user.id !== userId));
+        if (blockedFriend) {
+            setBlockedUsers(prev => [...prev, {
+                friendshipId: result.friendship?.id || blockedFriend.friendshipId,
+                user: blockedFriend.user,
+                blockedAt: new Date().toISOString(),
+            }]);
         }
     }, [friends]);
 
     const unblockUser = useCallback(async (userId) => {
-        try {
-            await chatService.unblockUser(userId);
-            // Remove from blocked list and refresh friends (they return to ACCEPTED)
-            setBlockedUsers(prev => prev.filter(b => b.user.id !== userId));
-            await loadFriends();
-        } catch (err) {
-            console.error('Failed to unblock user:', err);
-            throw err;
-        }
+        await chatService.unblockUser(userId);
+        // Remove from blocked list and refresh friends (they return to ACCEPTED)
+        setBlockedUsers(prev => prev.filter(b => b.user.id !== userId));
+        await loadFriends();
     }, [loadFriends]);
 
     // --- Real-time Socket Events ---
