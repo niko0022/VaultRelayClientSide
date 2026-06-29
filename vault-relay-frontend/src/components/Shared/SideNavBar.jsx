@@ -2,19 +2,21 @@ import { NavLink } from 'react-router-dom';
 
 const iconClass = ({ isActive }) =>
   `p-3 rounded-full transition-colors ${isActive
-    ? 'text-white bg-black shadow-md'
-    : 'text-gray-400 hover:text-gray-800 hover:bg-gray-50'
+    ? 'text-gray-800 bg-white/60 shadow-sm'
+    : 'text-gray-500 hover:text-gray-800 hover:bg-white/40'
   }`;
 
 const activeIconClass = ({ isActive }) =>
   `p-3 rounded-2xl transition-colors relative ${isActive
-    ? 'text-white bg-black shadow-md'
-    : 'text-gray-400 hover:text-gray-800 hover:bg-gray-50'
+    ? 'text-gray-800 bg-white/60 shadow-sm'
+    : 'text-gray-500 hover:text-gray-800 hover:bg-white/40'
   }`;
 
-export default function SideNavBar({ className = "fixed left-0 top-0 h-screen z-40" }) {
+export default function SideNavBar({ className = "" }) {
   return (
-    <aside className={`w-20 lg:w-24 flex flex-col items-center py-8 bg-white border-r border-gray-100 ${className}`}>
+    <aside
+      className={`w-20 lg:w-24 flex flex-col items-center py-8 relative h-full ${className}`}
+    >
       {/* Logo */}
       <div className="mb-12 cursor-pointer">
         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center shadow-sm">
@@ -39,11 +41,6 @@ export default function SideNavBar({ className = "fixed left-0 top-0 h-screen z-
         <NavLink to="/messages" className={activeIconClass} title="Messages">
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
-          </svg>
-        </NavLink>
-        <NavLink to="/storage" className={iconClass} title="Storage">
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
           </svg>
         </NavLink>
       </nav>
