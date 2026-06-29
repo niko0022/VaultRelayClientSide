@@ -2,12 +2,6 @@ import { signalStoreAdapter } from '../lib/signal/SignalStoreAdapter';
 
 /**
  * Parses the decrypted plaintext of a message that has an attachmentUrl.
- * If the plaintext is a JSON envelope containing an AES key, extracts
- * the attachment metadata and returns the display text separately.
- *
- * @param {string} plaintext - The decrypted Signal plaintext.
- * @param {string} msgId - The message ID (for logging).
- * @returns {{ displayContent: string, attachmentMeta: object|null }}
  */
 function parseAttachmentEnvelope(plaintext, msgId) {
     let attachmentMeta = null;
@@ -33,18 +27,37 @@ function parseAttachmentEnvelope(plaintext, msgId) {
 }
 
 /**
+ * Helper to extract device slice from fanned-out map in 1-to-1 chats
+ */
+async function extractDeviceSlice(msg, currentUserId, isGroup) {
+    if (isGroup) return msg.content;
+    if (!msg.content || typeof msg.content !== 'string' || !msg.content.startsWith('{')) {
+        return msg.content;
+    }
+    try {
+        const parsedMap = JSON.parse(msg.content);
+        if (parsedMap && typeof parsedMap === 'object' && !parsedMap.type) {
+            const myDeviceId = await signalStoreAdapter.getDeviceId();
+            const myAddressKey = `${currentUserId}.${myDeviceId}`;
+            const mySlice = parsedMap[myAddressKey];
+            if (!mySlice) throw new Error('No slice found for current device');
+            return mySlice;
+        }
+    } catch (e) {
+        // Not a JSON map
+    }
+    return msg.content;
+}
+
+/**
  * Processes raw server messages: handles key distribution, decrypts
  * Signal-encrypted messages, and extracts attachment metadata.
- *
- * @param {Array} rawMessages - Messages from the backend API.
- * @param {Map} localMap - Map of message ID → cached decrypted message from IndexedDB.
- * @param {object} deps - All required dependencies.
- * @returns {Promise<Array>} Processed messages ready for the UI.
  */
 export async function processMessages(rawMessages, localMap, deps) {
     const {
         isReady, isGroup, conversationId, currentUserId,
         decryptedCacheRef, directDecrypt, decryptGroupMessage, processGroupDistribution,
+        selfDecrypt,
     } = deps;
     if (!isReady) return rawMessages;
 
@@ -62,7 +75,7 @@ export async function processMessages(rawMessages, localMap, deps) {
                     let parsedMap = msg.content;
                     if (typeof msg.content === 'string') parsedMap = JSON.parse(msg.content);
 
-                    await processGroupDistribution(msg.senderId, conversationId, parsedMap);
+                    await processGroupDistribution(msg.senderId, msg.senderDeviceId, conversationId, parsedMap);
                 } catch (err) {
                     console.error('Failed to unpack distribution key:', err);
                 }
@@ -72,7 +85,6 @@ export async function processMessages(rawMessages, localMap, deps) {
             const cacheMsg = { ...msg, conversationId, content: 'processed' };
             signalStoreAdapter.saveLocalMessage(cacheMsg).catch(e => console.error(e));
 
-            // Key distribution is a system message — don't show it in the UI list
             continue;
         }
 
@@ -82,98 +94,117 @@ export async function processMessages(rawMessages, localMap, deps) {
                 continue;
             }
 
-            if (msg.senderId !== currentUserId) {
-                if (decryptedCacheRef.current.has(msg.id)) {
-                    continue;
+            if (decryptedCacheRef.current.has(msg.id)) {
+                continue;
+            }
+            try {
+                let slice = msg.content;
+                if (!isGroup) {
+                    slice = await extractDeviceSlice(msg, currentUserId, isGroup);
                 }
-                try {
-                    let plaintext;
-                    if (isGroup) {
-                        plaintext = await decryptGroupMessage(msg.senderId, conversationId, msg.content);
-                    } else {
-                        plaintext = await directDecrypt(msg.content);
-                    }
-                    decryptedCacheRef.current.set(msg.id, plaintext);
+                if (!slice) continue; // Not addressed to us
 
-                    const parsed = JSON.parse(plaintext);
-                    if (parsed && parsed.type === 'REACTION') {
-                        const { emoji, targetMessageId, isRemove } = parsed;
-
-                        if (isRemove) {
-                            await signalStoreAdapter.removeReaction(targetMessageId, msg.senderId, emoji);
+                let plaintext;
+                if (isGroup) {
+                    plaintext = await decryptGroupMessage(msg.senderId, msg.senderDeviceId, conversationId, slice);
+                } else {
+                    if (msg.senderId === currentUserId) {
+                        if (selfDecrypt) {
+                            plaintext = await selfDecrypt(slice, msg.senderDeviceId);
                         } else {
-                            await signalStoreAdapter.saveReaction(targetMessageId, conversationId, msg.senderId, emoji);
+                            throw new Error('Self decrypt not available');
                         }
-
-                        if (deps.onReactionUpdate) {
-                            deps.onReactionUpdate({
-                                messageId: targetMessageId,
-                                userId: msg.senderId,
-                                emoji,
-                                isRemove
-                            });
-                        }
+                    } else {
+                        plaintext = await directDecrypt(slice, msg.senderDeviceId);
                     }
-                } catch (err) {
-                    console.error('Failed to decrypt reaction message:', msg.id, err);
                 }
+                decryptedCacheRef.current.set(msg.id, plaintext);
+
+                const parsed = JSON.parse(plaintext);
+                if (parsed && parsed.type === 'REACTION') {
+                    const { emoji, targetMessageId, isRemove } = parsed;
+
+                    if (isRemove) {
+                        await signalStoreAdapter.removeReaction(targetMessageId, msg.senderId, emoji);
+                    } else {
+                        await signalStoreAdapter.saveReaction(targetMessageId, conversationId, msg.senderId, emoji);
+                    }
+
+                    if (deps.onReactionUpdate) {
+                        deps.onReactionUpdate({
+                            messageId: targetMessageId,
+                            userId: msg.senderId,
+                            emoji,
+                            isRemove
+                        });
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to decrypt reaction message:', msg.id, err);
             }
 
             // Cache it so we never try to decrypt this exact message ID again
             const cacheMsg = { ...msg, conversationId, content: 'processed' };
             signalStoreAdapter.saveLocalMessage(cacheMsg).catch(e => console.error(e));
 
-            // Reactions are processed but not displayed in the messages list
             continue;
         }
 
         if (msg.contentType === 'SIGNAL_ENCRYPTED') {
-            // If it is in local IndexedDB history (we sent it OR we already received and decrypted it in a past session)
             if (localMap.has(msg.id)) {
                 processed.push(localMap.get(msg.id));
                 continue;
             }
 
-            if (msg.senderId === currentUserId) {
-                // If not in local cache (should be rare), just mark as sent
-                processed.push({ ...msg, content: 'Message Sent' });
-            } else {
-                // If we already decrypted this message in THIS session (in RAM cache)
-                if (decryptedCacheRef.current.has(msg.id)) {
-                    processed.push({ ...msg, content: decryptedCacheRef.current.get(msg.id), isDecrypted: true });
-                    continue;
+            if (decryptedCacheRef.current.has(msg.id)) {
+                processed.push({ ...msg, content: decryptedCacheRef.current.get(msg.id), isDecrypted: true });
+                continue;
+            }
+
+            try {
+                let slice = msg.content;
+                if (!isGroup) {
+                    slice = await extractDeviceSlice(msg, currentUserId, isGroup);
+                    if (!slice) {
+                        processed.push({ ...msg, content: 'Message not available on this device', isDecrypted: false });
+                        continue;
+                    }
                 }
-                try {
-                    let plaintext = 'Error decrypting message';
-                    if (isGroup) {
-                        plaintext = await decryptGroupMessage(msg.senderId, conversationId, msg.content);
+
+                let plaintext;
+                if (isGroup) {
+                    plaintext = await decryptGroupMessage(msg.senderId, msg.senderDeviceId, conversationId, slice);
+                } else {
+                    if (msg.senderId === currentUserId) {
+                        if (selfDecrypt) {
+                            plaintext = await selfDecrypt(slice, msg.senderDeviceId);
+                        } else {
+                            throw new Error('Self decrypt not available');
+                        }
                     } else {
-                        plaintext = await directDecrypt(msg.content);
+                        plaintext = await directDecrypt(slice, msg.senderDeviceId);
                     }
-                    decryptedCacheRef.current.set(msg.id, plaintext);
-
-                    // Detect if this is an attachment message
-                    let attachmentMeta = null;
-                    let displayContent = plaintext;
-                    if (msg.attachmentUrl) {
-                        ({ displayContent, attachmentMeta } = parseAttachmentEnvelope(plaintext, msg.id));
-                    }
-
-                    const finalizedMsg = {
-                        ...msg, content: displayContent, isDecrypted: true, contentType: 'TEXT',
-                        attachmentMeta,
-                    };
-                    processed.push(finalizedMsg);
-
-                    // Save the freshly decrypted message to IndexedDB so next time we load from server
-                    // we read it from local cache instead of double-decrypting and breaking the ratchet.
-                    signalStoreAdapter.saveLocalMessage(finalizedMsg).catch(e => {
-                        console.error('Failed to cache decrypted message', e);
-                    });
-                } catch (err) {
-                    console.error("Failed to decrypt message", msg.id, err);
-                    processed.push({ ...msg, content: 'Error decrypting message', isDecrypted: false });
                 }
+                decryptedCacheRef.current.set(msg.id, plaintext);
+
+                let attachmentMeta = null;
+                let displayContent = plaintext;
+                if (msg.attachmentUrl) {
+                    ({ displayContent, attachmentMeta } = parseAttachmentEnvelope(plaintext, msg.id));
+                }
+
+                const finalizedMsg = {
+                    ...msg, content: displayContent, isDecrypted: true, contentType: 'TEXT',
+                    attachmentMeta,
+                };
+                processed.push(finalizedMsg);
+
+                signalStoreAdapter.saveLocalMessage(finalizedMsg).catch(e => {
+                    console.error('Failed to cache decrypted message', e);
+                });
+            } catch (err) {
+                console.error("Failed to decrypt message", msg.id, err);
+                processed.push({ ...msg, content: 'Error decrypting message', isDecrypted: false });
             }
         } else {
             processed.push(msg);
