@@ -5,36 +5,36 @@ import chatPreview from '../assets/brave_screenshot_stitch.withgoogle.com.png';
 function EncryptedMessageCard() {
     return (
         <div className="relative w-full">
-            {/* Outer dark glass card */}
-            <div className="rounded-2xl bg-gray-900/80 backdrop-blur-xl border border-white/10 p-6 shadow-2xl">
-                <div className="flex gap-4 items-start">
-                    {/* Encrypted gibberish */}
-                    <div className="flex-1 font-mono text-sm text-gray-400 leading-relaxed">
-                        <p>*^@#%&.&</p>
-                        <p>*%^*€^.&$#</p>
-                        <p>*@#%^.%~</p>
-                        <p className="text-gray-500">~^.#%*</p>
-                    </div>
-                    {/* Lock icon */}
-                    <div className="shrink-0 flex flex-col items-center gap-2">
-                        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-teal-400/30 to-cyan-600/30 border border-teal-400/40 flex items-center justify-center shadow-[0_0_20px_rgba(0,200,200,0.3)]">
-                            <span className="material-symbols-outlined text-teal-300 text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>lock</span>
-                        </div>
-                    </div>
-                </div>
-                {/* Right-side decrypted bubble */}
-                <div className="mt-4 ml-auto w-fit bg-white/10 backdrop-blur border border-white/20 rounded-2xl px-4 py-3">
-                    <p className="text-white text-sm font-medium leading-snug">Your<br />messages are<br />end-to-end<br />encrypted.</p>
+            <div className="rounded-2xl bg-gray-900/80 backdrop-blur-xl border border-white/10 p-6 shadow-2xl space-y-4">
+
+                {/* Row label */}
+                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">What the server sees</p>
+
+                {/* Encrypted ciphertext block */}
+                <div className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 font-mono text-sm text-gray-400 leading-relaxed">
+                    <p>*^@#%&amp;.$!£€¥</p>
+                    <p>%^*€^&amp;$#@~.*!</p>
+                    <p>@#%^.%~*&amp;$^#!</p>
+                    <p className="text-gray-600">~^.#%*@!$€£¥&amp;</p>
                 </div>
 
-                {/* Status bar */}
-                <div className="mt-4 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 flex items-center gap-3">
-                    <span className="material-symbols-outlined text-teal-400 text-base" style={{ fontVariationSettings: "'FILL' 1" }}>verified_user</span>
-                    <div>
-                        <p className="text-xs text-gray-400">Encryption Status: <span className="text-teal-400 font-semibold">Secure</span></p>
-                        <p className="text-[11px] text-gray-500">Connected via Signal Protocol.</p>
+                {/* Arrow separator with lock */}
+                <div className="flex items-center gap-3">
+                    <div className="flex-1 h-px bg-white/10"></div>
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400/30 to-cyan-600/30 border border-teal-400/40 flex items-center justify-center shadow-[0_0_16px_rgba(0,200,200,0.3)]">
+                        <span className="material-symbols-outlined text-teal-300 text-base" style={{ fontVariationSettings: "'FILL' 1" }}>lock</span>
                     </div>
+                    <div className="flex-1 h-px bg-white/10"></div>
                 </div>
+
+                {/* Row label */}
+                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">What only you see</p>
+
+                {/* Decrypted readable message bubble */}
+                <div className="bg-white/10 backdrop-blur border border-white/20 rounded-2xl px-4 py-3">
+                    <p className="text-white text-sm font-medium leading-relaxed">Your messages are end-to-end encrypted. Nobody else can read them.</p>
+                </div>
+
             </div>
         </div>
     );
@@ -60,11 +60,18 @@ export default function Home() {
                         <a className="text-gray-500 hover:text-gray-900 font-medium text-sm transition-colors" href="#">Features</a>
                         <a className="text-gray-500 hover:text-gray-900 font-medium text-sm transition-colors" href="#">Security</a>
                     </div>
-                    <Link to="/login">
-                        <button className="bg-gray-900 text-white px-5 py-2 rounded-full font-semibold text-sm hover:bg-gray-800 active:scale-95 transition-all cursor-pointer">
-                            Download
-                        </button>
-                    </Link>
+                    <div className="flex items-center gap-2">
+                        <Link to="/login">
+                            <button className="bg-gray-900 text-white px-5 py-2 rounded-full font-semibold text-sm hover:bg-gray-800 active:scale-95 transition-all cursor-pointer">
+                                Login
+                            </button>
+                        </Link>
+                        <Link to="/register">
+                            <button className="bg-gray-900 text-white px-5 py-2 rounded-full font-semibold text-sm hover:bg-gray-800 active:scale-95 transition-all cursor-pointer">
+                                Register
+                            </button>
+                        </Link>
+                    </div>
                 </div>
             </nav>
 
