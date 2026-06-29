@@ -22,6 +22,7 @@ export async function sendSecureMessage(plaintext, attachment, {
     directHasSession, directEncrypt, directEstablish, remoteDirectUserId,
     encryptGroupMessage, generateGroupDistributionMap, distributedRef,
     setMessages, setError,
+    selfHasSession, selfEncrypt,
 }) {
     if (!conversationId) return;
     try {
@@ -77,7 +78,17 @@ export async function sendSecureMessage(plaintext, attachment, {
                 const bundle = await chatService.getPreKeyBundle(remoteDirectUserId);
                 await directEstablish(bundle);
             }
-            encryptedPayload = await directEncrypt(plaintextToEncrypt);
+            const recipientDeviceMap = await directEncrypt(plaintextToEncrypt);
+
+            let selfDeviceMap = {};
+            if (selfHasSession && selfEncrypt) {
+                try {
+                    selfDeviceMap = await selfEncrypt(plaintextToEncrypt);
+                } catch (e) {
+                    console.warn('Failed to encrypt for self-sync:', e);
+                }
+            }
+            encryptedPayload = { ...recipientDeviceMap, ...selfDeviceMap };
         }
 
         // Optimistic UI
