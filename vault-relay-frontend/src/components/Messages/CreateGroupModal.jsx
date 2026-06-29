@@ -48,14 +48,14 @@ export default function CreateGroupModal({ onClose }) {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-            <div className="bg-surface-container-high border border-white/10 rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="bg-white border border-gray-150 rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col max-h-[85vh]">
 
                 {/* Header */}
-                <div className="p-6 pb-4 border-b border-white/5 flex items-center justify-between">
-                    <h2 className="font-headline text-xl font-bold text-on-surface">New Group Chat</h2>
+                <div className="p-6 pb-4 border-b border-gray-100 flex items-center justify-between">
+                    <h2 className="font-headline text-xl font-bold text-gray-900">New Group Chat</h2>
                     <button
                         onClick={onClose}
-                        className="p-2 -mr-2 text-on-surface-variant hover:text-error transition-colors rounded-full hover:bg-white/5 cursor-pointer"
+                        className="p-2 -mr-2 text-gray-400 hover:text-red-600 transition-colors rounded-full hover:bg-gray-50 cursor-pointer"
                     >
                         <span className="material-symbols-outlined">close</span>
                     </button>
@@ -63,28 +63,28 @@ export default function CreateGroupModal({ onClose }) {
 
                 <div className="p-6 overflow-y-auto flex-1 space-y-6">
                     {error && (
-                        <div className="p-3 bg-error/10 border border-error/20 text-error rounded-lg text-sm text-center font-medium">
+                        <div className="p-3 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm text-center font-medium">
                             {error}
                         </div>
                     )}
 
                     {/* Title Input */}
                     <div>
-                        <label className="block text-xs font-bold text-primary uppercase tracking-wider mb-2">Group Title</label>
+                        <label className="block text-xs font-bold text-[#1D7A54] uppercase tracking-wider mb-2">Group Title</label>
                         <input
                             type="text"
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
                             placeholder="e.g. Group Name"
-                            className="w-full bg-surface-container border border-white/10 text-on-surface text-sm rounded-lg px-4 py-3 focus:outline-none focus:border-primary transition-colors"
+                            className="w-full bg-gray-50 border border-gray-100 text-gray-800 text-sm rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-gray-200 transition-colors"
                         />
                     </div>
 
                     {/* Restricted Toggle */}
-                    <div className="flex items-center justify-between p-4 bg-surface-container rounded-lg border border-white/5">
+                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100/50">
                         <div>
-                            <div className="text-sm font-bold text-on-surface">Open Invites</div>
-                            <div className="text-xs text-on-surface-variant mt-1">Allow any member to invite others to the group.</div>
+                            <div className="text-sm font-bold text-gray-900">Open Invites</div>
+                            <div className="text-xs text-gray-500 mt-1">Allow any member to invite others to the group.</div>
                         </div>
                         <label className="relative inline-flex items-center cursor-pointer">
                             <input
@@ -93,20 +93,20 @@ export default function CreateGroupModal({ onClose }) {
                                 checked={memberCanInvite}
                                 onChange={(e) => setMemberCanInvite(e.target.checked)}
                             />
-                            <div className="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1D7A54]"></div>
                         </label>
                     </div>
 
                     {/* Friend Selection */}
                     <div>
-                        <label className="block text-xs font-bold text-primary uppercase tracking-wider mb-2">
+                        <label className="block text-xs font-bold text-[#1D7A54] uppercase tracking-wider mb-2">
                             Select Members ({selectedFriends.size})
                         </label>
 
                         {loading ? (
-                            <div className="text-center text-sm text-on-surface-variant py-4">Loading friends...</div>
+                            <div className="text-center text-sm text-gray-500 py-4">Loading friends...</div>
                         ) : friends.length === 0 ? (
-                            <div className="text-center text-sm text-on-surface-variant py-4 bg-surface-container rounded-lg">
+                            <div className="text-center text-sm text-gray-500 py-4 bg-gray-50 rounded-xl">
                                 You don't have any friends to add yet.
                             </div>
                         ) : (
@@ -119,33 +119,33 @@ export default function CreateGroupModal({ onClose }) {
                                         <div
                                             key={friendObj.friendshipId}
                                             onClick={() => toggleFriend(friendUserId)}
-                                            className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${isSelected
-                                                ? 'bg-primary/20 border-primary/50'
-                                                : 'bg-surface-container border-white/5 hover:border-white/20'
+                                            className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${isSelected
+                                                ? 'bg-[#EAF5F0] border-[#1D7A54]/30'
+                                                : 'bg-gray-50 border-gray-100 hover:border-gray-200'
                                                 }`}
                                         >
-                                            <div className="w-10 h-10 rounded-full overflow-hidden bg-surface-container-highest flex-shrink-0">
+                                            <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 flex-shrink-0">
                                                 {friendObj.user.avatarUrl ? (
                                                     <img src={friendObj.user.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
                                                 ) : (
-                                                    <div className="w-full h-full flex items-center justify-center text-on-surface-variant font-bold">
+                                                    <div className="w-full h-full flex items-center justify-center text-gray-500 font-bold bg-gray-100">
                                                         {(friendObj.user.displayName || friendObj.user.username || '?').charAt(0).toUpperCase()}
                                                     </div>
                                                 )}
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <div className="text-sm font-bold text-on-surface truncate">
+                                                <div className="text-sm font-bold text-gray-900 truncate">
                                                     {friendObj.user.displayName || friendObj.user.username}
                                                 </div>
-                                                <div className="text-xs text-on-surface-variant truncate">
+                                                <div className="text-xs text-gray-500 truncate">
                                                     @{friendObj.user.username}
                                                 </div>
                                             </div>
 
                                             {/* Checkbox circle */}
-                                            <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${isSelected ? 'bg-primary border-primary' : 'border-outline-variant'
+                                            <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${isSelected ? 'bg-[#1D7A54] border-[#1D7A54]' : 'border-gray-300'
                                                 }`}>
-                                                {isSelected && <span className="material-symbols-outlined text-[14px] text-on-primary">check</span>}
+                                                {isSelected && <span className="material-symbols-outlined text-[14px] text-white">check</span>}
                                             </div>
                                         </div>
                                     );
@@ -156,11 +156,11 @@ export default function CreateGroupModal({ onClose }) {
                 </div>
 
                 {/* Footer Footer */}
-                <div className="p-6 border-t border-white/5 bg-surface-container-low">
+                <div className="p-6 border-t border-gray-100 bg-gray-50/50">
                     <button
                         onClick={handleCreate}
                         disabled={isSubmitting || !cleanTitle}
-                        className="w-full bg-primary text-on-primary font-bold text-sm py-3 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        className="w-full bg-[#1D7A54] text-white font-bold text-sm py-3 rounded-xl hover:bg-[#155D3F] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
                     >
                         {isSubmitting ? (
                             <span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
