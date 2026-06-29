@@ -6,54 +6,26 @@ import { signalStoreAdapter } from '../lib/signal/SignalStoreAdapter';
 import { ensureWasmReady } from '../lib/signal/initWasm';
 import { uint8ArrayToBase64, base64ToUint8Array, decodeServerBundle } from '../lib/signal/signalUtils';
 
-
-export function useSignalSession(remoteName, remoteDeviceId) {
+export function useSignalSession(remoteName) {
     const [isReady, setIsReady] = useState(false);
     const [hasSession, setHasSession] = useState(false);
     const hasSessionRef = useRef(false);
     const [error, setError] = useState(null);
 
-    // Refs to hold WASM objects to avoid re-creating on every render
-    const cipherRef = useRef(null);
-    const addressRef = useRef(null);
-    const builderRef = useRef(null);
+    // Maps to hold WASM objects per device ID
+    const ciphersRef = useRef(new Map()); // Map<deviceId, SessionCipher>
+    const addressesRef = useRef(new Map()); // Map<deviceId, SignalProtocolAddress>
     const wasmReady = useRef(false);
 
-    // Initialize WASM and check for existing session
+    // Initialize WASM
     useEffect(() => {
         let active = true;
 
         const loadWasm = async () => {
             try {
-                // Single shared init — passes our own init to guarantee same module instance
                 await ensureWasmReady(init, initIdentity);
                 if (!active) return;
                 wasmReady.current = true;
-
-                if (!remoteName) {
-                    // Chat window is open, but no specific user is selected yet (or it's a group chat).
-                    setIsReady(true);
-                    return;
-                }
-
-                // Create the protocol address
-                const address = new SignalProtocolAddress(remoteName, parseInt(remoteDeviceId));
-                addressRef.current = address;
-
-                // ALWAYS create cipher directly so we can decrypt incoming PreKey messages
-                // The WASM bridge handles checking local storage internally when decrypting
-                const sessionCipher = new SessionCipher(address);
-                cipherRef.current = sessionCipher;
-
-                // Check if we already have an established session
-                const addressKey = `${remoteName}.${remoteDeviceId}`;
-                const existingSession = await signalStoreAdapter.loadSession(addressKey);
-
-                if (existingSession) {
-                    setHasSession(true);
-                    hasSessionRef.current = true;
-                }
-
                 setIsReady(true);
             } catch (e) {
                 console.error("Failed to initialize Signal WASM:", e);
@@ -65,131 +37,152 @@ export function useSignalSession(remoteName, remoteDeviceId) {
 
         return () => {
             active = false;
-            if (cipherRef.current) {
-                cipherRef.current.free();
-                cipherRef.current = null;
-            }
-            if (addressRef.current) {
-                addressRef.current.free();
-                addressRef.current = null;
-            }
-            if (builderRef.current) {
-                builderRef.current.free();
-                builderRef.current = null;
-            }
+            ciphersRef.current.forEach(cipher => cipher.free());
+            ciphersRef.current.clear();
+            addressesRef.current.forEach(address => address.free());
+            addressesRef.current.clear();
         };
-    }, [remoteName, remoteDeviceId]);
-
-    /**
-     * Establishes a new Signal session using the remote user's pre-key bundle.
-     * @param {Object} bundle - The remote user's pre-key bundle from the server
-     */
-    const establishSession = useCallback(async (bundle) => {
-        if (!wasmReady.current || !addressRef.current) {
-            throw new Error("Cannot establish direct session: no remote user specified");
-        }
-        if (hasSessionRef.current) {
-            return;
-        }
-
-        // Decode the server bundle mapping JSON Base64 strings to raw Uint8Arrays
-        const decodedBundle = decodeServerBundle(bundle, parseInt(remoteDeviceId));
-
-        // Free any previously leaked builder
-        if (builderRef.current) {
-            builderRef.current.free();
-            builderRef.current = null;
-        }
-
-        const builder = new SessionBuilder();
-        builderRef.current = builder;
-
-        await builder.processPreKeyBundleWithKyber(
-            addressRef.current,
-            decodedBundle.registrationId,
-            decodedBundle.deviceId,
-            decodedBundle.preKeyId,
-            decodedBundle.preKeyPublicKey,
-            decodedBundle.signedPreKeyId,
-            decodedBundle.signedPreKeyPublicKey,
-            decodedBundle.signedPreKeySignature,
-            decodedBundle.identityKey,
-            decodedBundle.kyberPreKeyId,
-            decodedBundle.kyberPreKeyPublicKey,
-            decodedBundle.kyberPreKeySignature
-        );
-
-        // Builder is done — free it immediately
-        builder.free();
-        builderRef.current = null;
-
-        // Session is now stored
-        setHasSession(true);
-        hasSessionRef.current = true;
     }, []);
 
     /**
-     * Tears down the current session so a new one can be established.
-     * Use this when the remote user reinstalls their app (new Identity Key)
-     * or when you need to force a re-key for any reason.
+     * Establishes Signal sessions using the remote user's active device pre-key bundles.
+     * @param {Array<Object>|Object} bundlesInput - Array of device bundles for the remote user
+     */
+    const establishSession = useCallback(async (bundlesInput) => {
+        if (!wasmReady.current || !remoteName) {
+            throw new Error("Cannot establish direct session: WASM not ready or no remote user specified");
+        }
+
+        const bundles = Array.isArray(bundlesInput) ? bundlesInput : [bundlesInput];
+        const builder = new SessionBuilder();
+
+        try {
+            for (const bundle of bundles) {
+                const decodedBundle = decodeServerBundle(bundle);
+                const deviceId = decodedBundle.deviceId;
+                const addressKey = `${remoteName}.${deviceId}`;
+
+                // Get or create SignalProtocolAddress
+                let address = addressesRef.current.get(deviceId);
+                if (!address) {
+                    address = new SignalProtocolAddress(remoteName, deviceId);
+                    addressesRef.current.set(deviceId, address);
+                }
+
+                // Check if we already have an established session in IndexedDB
+                const existingSession = await signalStoreAdapter.loadSession(addressKey);
+
+                if (!existingSession) {
+                    await builder.processPreKeyBundleWithKyber(
+                        address,
+                        decodedBundle.registrationId,
+                        decodedBundle.deviceId,
+                        decodedBundle.preKeyId,
+                        decodedBundle.preKeyPublicKey,
+                        decodedBundle.signedPreKeyId,
+                        decodedBundle.signedPreKeyPublicKey,
+                        decodedBundle.signedPreKeySignature,
+                        decodedBundle.identityKey,
+                        decodedBundle.kyberPreKeyId,
+                        decodedBundle.kyberPreKeyPublicKey,
+                        decodedBundle.kyberPreKeySignature
+                    );
+                }
+
+                // Create and cache SessionCipher
+                if (!ciphersRef.current.has(deviceId)) {
+                    ciphersRef.current.set(deviceId, new SessionCipher(address));
+                }
+            }
+
+            setHasSession(true);
+            hasSessionRef.current = true;
+        } finally {
+            builder.free();
+        }
+    }, [remoteName]);
+
+    /**
+     * Tears down all sessions with the remote user.
      */
     const resetSession = useCallback(async () => {
         if (!wasmReady.current) {
             throw new Error("WASM not initialized yet");
         }
 
-        // Free the existing WASM cipher object
-        if (cipherRef.current) {
-            cipherRef.current.free();
-            cipherRef.current = null;
-        }
+        // Free and clear ciphers
+        ciphersRef.current.forEach(cipher => cipher.free());
+        ciphersRef.current.clear();
 
-        // Remove the session record from IndexedDB
-        if (addressRef.current) {
-            const addressKey = `${remoteName}.${remoteDeviceId}`;
-            await signalStoreAdapter.storeSession(addressKey, null);
+        // Remove the session records from IndexedDB
+        if (remoteName) {
+            await signalStoreAdapter.removeSessionsAndIdentitiesForUser(remoteName);
         }
 
         setHasSession(false);
         hasSessionRef.current = false;
-    }, [remoteName, remoteDeviceId]);
+    }, [remoteName]);
 
     // ─── Active Messaging Logic ──────────────────────────────────────
 
+    /**
+     * Encrypts the plaintext separately for each of the remote user's device ciphers.
+     * Returns a map: { [userId.deviceId]: { type, body } }
+     */
     const encryptMessage = useCallback(async (text) => {
-        if (!hasSessionRef.current || !cipherRef.current) throw new Error("No session — call establishSession first");
+        if (ciphersRef.current.size === 0) {
+            throw new Error("No active sessions — call establishSession first");
+        }
 
         const encoder = new TextEncoder();
         const bytes = encoder.encode(text);
+        const results = {};
 
-        // WASM returns { type: number, body: Uint8Array }
-        const result = await cipherRef.current.encrypt(bytes);
+        for (const [deviceId, cipher] of ciphersRef.current.entries()) {
+            const result = await cipher.encrypt(bytes);
+            results[`${remoteName}.${deviceId}`] = {
+                type: result.type,
+                body: uint8ArrayToBase64(result.body)
+            };
+        }
 
-        // Convert body to Base64 so it survives JSON serialization over the socket
-        return {
-            type: result.type,
-            body: uint8ArrayToBase64(result.body)
-        };
-    }, []);
+        return results;
+    }, [remoteName]);
 
-    const decryptMessage = useCallback(async (encryptedMessage) => {
-        if (!cipherRef.current) throw new Error("No session — call establishSession first");
-
-        // Parse if it arrives as a raw JSON string from the DB
+    /**
+     * Decrypts an incoming message slice targeted at this device.
+     */
+    const decryptMessage = useCallback(async (encryptedMessage, senderDeviceId = 1) => {
         let parsed = encryptedMessage;
         if (typeof encryptedMessage === 'string') {
             parsed = JSON.parse(encryptedMessage);
         }
 
         const { type: msgType, body } = parsed;
+        const bodyBytes = typeof body === 'string' ? base64ToUint8Array(body) : body;
 
-        // Decode Base64 body back to Uint8Array for the WASM decryptor
-        const bodyBytes = typeof body === 'string'
-            ? base64ToUint8Array(body)
-            : body; // Already Uint8Array from WASM
+        const devId = parseInt(senderDeviceId);
+
+        // Lazily instantiate cipher if it exists in IndexedDB but not memory
+        let cipher = ciphersRef.current.get(devId);
+        if (!cipher) {
+            const addressKey = `${remoteName}.${devId}`;
+            const sessionRecord = await signalStoreAdapter.loadSession(addressKey);
+            if (!sessionRecord) {
+                throw new Error(`No session found for ${addressKey} — cannot decrypt`);
+            }
+            // Only create cipher if session is confirmed to exist
+            let address = addressesRef.current.get(devId);
+            if (!address) {
+                address = new SignalProtocolAddress(remoteName, devId);
+                addressesRef.current.set(devId, address);
+            }
+            cipher = new SessionCipher(address);
+            ciphersRef.current.set(devId, cipher);
+        }
 
         try {
-            const plaintextBytes = await cipherRef.current.decrypt(msgType, bodyBytes);
+            const plaintextBytes = await cipher.decrypt(msgType, bodyBytes);
             const decoder = new TextDecoder();
 
             if (!hasSessionRef.current) {
@@ -209,11 +202,11 @@ export function useSignalSession(remoteName, remoteDeviceId) {
             console.error("Decryption failed:", e);
             throw e;
         }
-    }, []);
+    }, [remoteName]);
 
     return {
-        isReady,       // true once WASM is loaded (but session may not exist yet)
-        hasSession,    // true once a session is established or was found in storage
+        isReady,
+        hasSession,
         error,
         establishSession,
         resetSession,
