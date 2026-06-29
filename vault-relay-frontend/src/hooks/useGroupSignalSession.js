@@ -11,16 +11,14 @@ export function useGroupSignalSession(currentUserId) {
     const [isReady, setIsReady] = useState(false);
     const [error, setError] = useState(null);
 
-    // Refs
     const wasmReady = useRef(false);
-    const ciphersRef = useRef(new Map()); // Map<userId, SessionCipher>
-    const groupCiphersRef = useRef(new Map()); // Map<groupId, GroupCipher>
+    const ciphersRef = useRef(new Map()); // Map<addressKey (userId.deviceId), SessionCipher>
+    const groupCiphersRef = useRef(new Map()); // Map<cacheKey (senderId.deviceId_groupId), GroupCipher>
 
     useEffect(() => {
         let active = true;
         const loadWasm = async () => {
             try {
-                // Single shared init — passes our own init to guarantee same module instance
                 await ensureWasmReady(init, initIdentity);
                 if (!active) return;
                 wasmReady.current = true;
@@ -34,19 +32,14 @@ export function useGroupSignalSession(currentUserId) {
 
         return () => {
             active = false;
-            // Memory Management
             ciphersRef.current.forEach(cipher => cipher.free());
             ciphersRef.current.clear();
-
             groupCiphersRef.current.forEach(cipher => cipher.free());
             groupCiphersRef.current.clear();
         };
     }, []);
 
-    // Load or establish 1-to-1 relationships for group members 
-
-    // Call this with the pre-key bundles from `/keys/batch` 
-    // It skips participants we already have sessions for.
+    // Load or establish 1-to-1 relationships for group member devices
     const establishGroupSessions = useCallback(async (bundles) => {
         if (!wasmReady.current) throw new Error("WASM not ready");
 
@@ -54,21 +47,18 @@ export function useGroupSignalSession(currentUserId) {
         try {
             for (const bundle of bundles) {
                 const remoteUserId = bundle.userId;
-                const addressKey = `${remoteUserId}.1`;
+                const deviceId = bundle.deviceId;
+                const addressKey = `${remoteUserId}.${deviceId}`;
 
-                // 1. Check if cipher already exists in RAM
-                if (ciphersRef.current.has(remoteUserId)) continue;
+                if (ciphersRef.current.has(addressKey)) continue;
 
-                const address = new SignalProtocolAddress(remoteUserId, 1);
-
-                // 2. Check if session already exists in DB
+                const address = new SignalProtocolAddress(remoteUserId, deviceId);
                 const sessionRecord = await signalStoreAdapter.loadSession(addressKey);
 
                 if (sessionRecord) {
-                    ciphersRef.current.set(remoteUserId, new SessionCipher(address));
+                    ciphersRef.current.set(addressKey, new SessionCipher(address));
                 } else if (bundle.registrationId) {
-                    // 3. Process the bundle from the backend
-                    const decoded = decodeServerBundle(bundle, 1);
+                    const decoded = decodeServerBundle(bundle);
                     await builder.processPreKeyBundleWithKyber(
                         address,
                         decoded.registrationId,
@@ -83,7 +73,7 @@ export function useGroupSignalSession(currentUserId) {
                         decoded.kyberPreKeyPublicKey,
                         decoded.kyberPreKeySignature
                     );
-                    ciphersRef.current.set(remoteUserId, new SessionCipher(address));
+                    ciphersRef.current.set(addressKey, new SessionCipher(address));
                 }
                 address.free();
             }
@@ -92,54 +82,49 @@ export function useGroupSignalSession(currentUserId) {
         }
     }, []);
 
-    // Key Distribution 
-
-    // Creates the SenderKeyDistributionMessage, encrypts it individually for all members,
-    // and returns the { [userId]: { type, body } } map for backend storage Option A.
+    // Creates the SenderKeyDistributionMessage, encrypts it individually for all group member devices,
+    // and returns the { [userId.deviceId]: { type, body } } map.
     const generateGroupDistributionMap = useCallback(async (groupId, participantIds) => {
         if (!wasmReady.current) throw new Error("WASM not ready");
 
+        const myDeviceId = await signalStoreAdapter.getDeviceId();
+        const myAddress = new SignalProtocolAddress(currentUserId, myDeviceId);
         const builder = new GroupSessionBuilder();
-        const myAddress = new SignalProtocolAddress(currentUserId, 1);
 
         try {
-            // Generates SenderKeyMessage payload bytes natively mapped from Rust array buffer
             const skdmObj = await builder.createSenderKeyDistributionMessage(myAddress, groupId);
             const skdmBytes = skdmObj instanceof Uint8Array
                 ? skdmObj
                 : new Uint8Array(Object.values(skdmObj));
 
             const distributionMap = {};
+            const { chatService } = await import('../services/chatService');
 
-            // Send the SKDM to every participant using 1-to-1 ciphers!
-            for (const peerId of participantIds) {
-                if (peerId === currentUserId) continue;
+            // Fetch pre-key bundles for all devices of all participants
+            const response = await chatService.getPreKeyBundles(participantIds);
+            const bundles = response.bundles || response;
 
-                let cipher = ciphersRef.current.get(peerId);
+            // Ensure we have established sessions for all target devices
+            await establishGroupSessions(bundles);
 
-                // If no cipher exists, try to establish one on the fly
+            for (const bundle of bundles) {
+                const peerId = bundle.userId;
+                const deviceId = bundle.deviceId;
+
+                // Skip encrypting for ourselves on the sending device
+                if (peerId === currentUserId && deviceId === myDeviceId) continue;
+
+                const addressKey = `${peerId}.${deviceId}`;
+                const cipher = ciphersRef.current.get(addressKey);
+
                 if (!cipher) {
-                    console.warn(`No cipher for ${peerId}, fetching bundle on the fly...`);
-                    try {
-                        const { chatService } = await import('../services/chatService');
-                        const bundle = await chatService.getPreKeyBundle(peerId);
-                        await establishGroupSessions([{ ...bundle, userId: peerId }]);
-                        cipher = ciphersRef.current.get(peerId);
-                    } catch (err) {
-                        console.error(`Failed to establish session with ${peerId}:`, err);
-                    }
-                }
-
-                if (!cipher) {
-                    console.warn(`Still no cipher for ${peerId} after fallback — skipping distribution.`);
+                    console.warn(`No 1-to-1 cipher for ${addressKey} — skipping group distribution.`);
                     continue;
                 }
 
-                // 1-to-1 Encrypt the raw bytes
                 const result = await cipher.encrypt(skdmBytes);
-                distributionMap[peerId] = {
+                distributionMap[addressKey] = {
                     type: result.type,
-                    // Convert back to stable String because DB stores it natively
                     body: uint8ArrayToBase64(result.body instanceof Uint8Array ? result.body : new Uint8Array(result.body))
                 };
             }
@@ -151,29 +136,32 @@ export function useGroupSignalSession(currentUserId) {
         }
     }, [currentUserId, establishGroupSessions]);
 
-    // Processes a received SIGNAL_KEY_DISTRIBUTION map, pulling our own blob.
-    const processGroupDistribution = useCallback(async (senderId, groupId, keyBlobMap) => {
+    // Processes a received SIGNAL_KEY_DISTRIBUTION map, pulling our own slice.
+    const processGroupDistribution = useCallback(async (senderId, senderDeviceId, groupId, keyBlobMap) => {
         if (!wasmReady.current) throw new Error("WASM not ready");
 
-        const mySlice = keyBlobMap[currentUserId];
-        if (!mySlice) return; // We aren't in this distribution
+        const myDeviceId = await signalStoreAdapter.getDeviceId();
+        const myAddressKey = `${currentUserId}.${myDeviceId}`;
+        const mySlice = keyBlobMap[myAddressKey];
+        if (!mySlice) return; // We aren't in this distribution slice
 
-        // If we don't have a 1-to-1 cipher yet, establish one on the fly
-        if (!ciphersRef.current.has(senderId)) {
-            console.warn(`No 1-to-1 cipher for ${senderId}, fetching bundle on the fly...`);
+        const senderAddressKey = `${senderId}.${senderDeviceId}`;
+
+        // Establish 1-to-1 session if not cached
+        if (!ciphersRef.current.has(senderAddressKey)) {
             try {
                 const { chatService } = await import('../services/chatService');
-                const bundle = await chatService.getPreKeyBundle(senderId);
-                await establishGroupSessions([{ ...bundle, userId: senderId }]);
+                const bundles = await chatService.getPreKeyBundle(senderId);
+                await establishGroupSessions(bundles);
             } catch (err) {
-                console.error(`Failed to establish on-the-fly session with ${senderId}:`, err);
+                console.error(`Failed to establish session with ${senderAddressKey} on distribution:`, err);
                 return;
             }
         }
 
-        const cipher = ciphersRef.current.get(senderId);
+        const cipher = ciphersRef.current.get(senderAddressKey);
         if (!cipher) {
-            console.error(`Still no cipher for ${senderId} after fallback — cannot process distribution.`);
+            console.error(`Still no 1-to-1 cipher for ${senderAddressKey} — cannot decrypt distribution.`);
             return;
         }
 
@@ -181,12 +169,10 @@ export function useGroupSignalSession(currentUserId) {
             ? base64ToUint8Array(mySlice.body)
             : new Uint8Array(Object.values(mySlice.body));
 
-        // 1-to-1 decrypt
         const plaintextBytes = await cipher.decrypt(mySlice.type, bodyBytes);
 
-        // Store into SenderKeyStore
         const builder = new GroupSessionBuilder();
-        const senderAddress = new SignalProtocolAddress(senderId, 1);
+        const senderAddress = new SignalProtocolAddress(senderId, parseInt(senderDeviceId));
         try {
             await builder.processSenderKeyDistributionMessage(senderAddress, plaintextBytes);
         } finally {
@@ -195,14 +181,12 @@ export function useGroupSignalSession(currentUserId) {
         }
     }, [currentUserId, establishGroupSessions]);
 
-    // Group Messaging 
-
-    // Helper to cache group ciphers (so we don't recreate them every message)
-    const getGroupCipher = (senderId, groupId) => {
-        const cacheKey = `${senderId}_${groupId}`;
+    // Group Message Cipher caching helper
+    const getGroupCipher = (senderId, senderDeviceId, groupId) => {
+        const cacheKey = `${senderId}.${senderDeviceId}_${groupId}`;
         let gc = groupCiphersRef.current.get(cacheKey);
         if (!gc) {
-            const addr = new SignalProtocolAddress(senderId, 1);
+            const addr = new SignalProtocolAddress(senderId, parseInt(senderDeviceId));
             gc = new GroupCipher(addr);
             groupCiphersRef.current.set(cacheKey, gc);
             addr.free();
@@ -213,7 +197,8 @@ export function useGroupSignalSession(currentUserId) {
     const encryptGroupMessage = useCallback(async (groupId, plaintext) => {
         if (!wasmReady.current) throw new Error("WASM not ready");
 
-        const groupCipher = getGroupCipher(currentUserId, groupId);
+        const myDeviceId = await signalStoreAdapter.getDeviceId();
+        const groupCipher = getGroupCipher(currentUserId, myDeviceId, groupId);
         const encoder = new TextEncoder();
         const bytes = encoder.encode(plaintext);
 
@@ -225,7 +210,7 @@ export function useGroupSignalSession(currentUserId) {
         };
     }, [currentUserId]);
 
-    const decryptGroupMessage = useCallback(async (senderId, groupId, encryptedMessage) => {
+    const decryptGroupMessage = useCallback(async (senderId, senderDeviceId, groupId, encryptedMessage) => {
         if (!wasmReady.current) throw new Error("WASM not ready");
 
         let parsed = encryptedMessage;
@@ -237,16 +222,11 @@ export function useGroupSignalSession(currentUserId) {
             ? base64ToUint8Array(body)
             : new Uint8Array(Object.values(body));
 
-        const groupCipher = getGroupCipher(senderId, groupId);
+        const groupCipher = getGroupCipher(senderId, senderDeviceId, groupId);
 
-        try {
-            const plaintextBytes = await groupCipher.decrypt(bodyBytes);
-            const decoder = new TextDecoder();
-            return decoder.decode(plaintextBytes);
-        } catch (e) {
-            console.error("Group decryption failed:", e);
-            throw e;
-        }
+        const plaintextBytes = await groupCipher.decrypt(bodyBytes);
+        const decoder = new TextDecoder();
+        return decoder.decode(plaintextBytes);
     }, []);
 
     const clearCiphersCache = useCallback(() => {
