@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from 'react';
 import { formatTime } from '../../utils/timeFormat';
 import AttachmentViewer from './AttachmentViewer';
 import ReactionPicker from './ReactionPicker';
@@ -5,19 +6,26 @@ import ReactionPicker from './ReactionPicker';
 export default function MessageBubble({ msg, isMe, isEditing, handleContextMenu, reactions = [], onReact, currentUserId, isBlocked = false }) {
     const isDeleted = msg.deleted;
     const senderName = msg.sender?.displayName || msg.sender?.username;
+    const [pickerOpen, setPickerOpen] = useState(false);
+    const pickerRef = useRef(null);
+
+    // Close picker when clicking outside
+    useEffect(() => {
+        if (!pickerOpen) return;
+        const handler = (e) => {
+            if (pickerRef.current && !pickerRef.current.contains(e.target)) {
+                setPickerOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [pickerOpen]);
 
     return (
         <div
             className={`flex gap-3 w-full group/row relative ${isMe ? 'justify-end' : 'justify-start'}`}
             onContextMenu={(e) => handleContextMenu(e, msg)}
         >
-            {/* Hover Reaction Picker */}
-            {!isDeleted && !msg.isPending && !isBlocked && (
-                <div className={`absolute -top-3.5 z-30 opacity-0 group-hover/row:opacity-100 focus-within:opacity-100 transition-all duration-200 ${isMe ? 'right-4' : 'left-14'}`}>
-                    <ReactionPicker onReact={onReact} />
-                </div>
-            )}
-
             {/* Left side avatar for incoming messages */}
             {!isMe && (
                 <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-100 shrink-0 flex items-center justify-center mt-1 border border-gray-200">
@@ -104,7 +112,7 @@ export default function MessageBubble({ msg, isMe, isEditing, handleContextMenu,
                     {msg.editedAt && !isDeleted && (
                         <span className="text-[10px] text-gray-400 italic">edited</span>
                     )}
-                    {msg.contentType === 'SIGNAL_ENCRYPTED' && (
+                    {(msg.contentType === 'SIGNAL_ENCRYPTED' || msg.isDecrypted) && (
                         <span className="text-[10px] text-emerald-500 uppercase font-bold tracking-wider flex items-center gap-0.5">
                             <span className="material-symbols-outlined text-[10px]">lock</span>
                             Secure
@@ -150,6 +158,34 @@ export default function MessageBubble({ msg, isMe, isEditing, handleContextMenu,
                     )}
                 </div>
             </div>
+
+            {/* Three-dot reaction trigger — right side of bubble */}
+            {!isDeleted && !msg.isPending && !isBlocked && (
+                <div
+                    ref={pickerRef}
+                    className="flex items-center self-center relative z-30"
+                >
+                    {pickerOpen ? (
+                        <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2">
+                            <ReactionPicker
+                                onReact={(emoji) => { onReact(emoji); setPickerOpen(false); }}
+                            />
+                        </div>
+                    ) : null}
+                    <button
+                        type="button"
+                        onClick={() => setPickerOpen(prev => !prev)}
+                        className="opacity-0 group-hover/row:opacity-100 focus:opacity-100 w-7 h-7 flex items-center justify-center rounded-full bg-white border border-gray-200 shadow-sm hover:bg-gray-50 transition-all text-gray-400 hover:text-gray-700 cursor-pointer"
+                        title="React"
+                    >
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <circle cx="5" cy="12" r="1.5" />
+                            <circle cx="12" cy="12" r="1.5" />
+                            <circle cx="19" cy="12" r="1.5" />
+                        </svg>
+                    </button>
+                </div>
+            )}
         </div>
     );
 }
