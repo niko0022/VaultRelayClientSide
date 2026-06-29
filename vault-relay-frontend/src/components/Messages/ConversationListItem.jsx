@@ -1,20 +1,14 @@
 import { formatTime } from '../../utils/timeFormat';
+import { resolveConversationName } from '../../utils/conversationUtils';
 
 export default function ConversationListItem({ conv, user, isSelected, selectConversation }) {
     const isUnread = conv.unreadCount > 0;
 
-    // Resolve display name and peer profile for direct chats
     const peer = conv.type === 'DIRECT'
         ? (conv.participantAId === user?.id ? conv.participantB : conv.participantA)
         : null;
     const isOnline = peer?.status === 'ONLINE';
-
-    let peerName;
-    if (conv.type === 'GROUP') {
-        peerName = conv.title || 'Group Chat';
-    } else {
-        peerName = peer?.displayName || 'Unknown User';
-    }
+    const peerName = resolveConversationName(conv, user?.id) || (conv.type === 'GROUP' ? 'Group Chat' : 'Unknown User');
 
     // Determine preview text
     let previewText = "No messages yet.";
