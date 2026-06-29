@@ -1,5 +1,5 @@
 const DB_NAME = 'signal-storage';
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 
 const STORES = {
     SESSIONS: 'sessions',
@@ -11,7 +11,8 @@ const STORES = {
     CRYPTO_KEYS: 'cryptoKeys',  // Stores the non-extractable Master Wrapping Key
     KYBER_USED_COMBOS: 'kyberUsedCombos',  // Replay detection for Kyber pre-key usage
     LOCAL_MESSAGES: 'localMessages', // WhatsApp-style sender history
-    REACTIONS: 'reactions' // Stores decrypted reactions per message
+    REACTIONS: 'reactions', // Stores decrypted reactions per message
+    DEVICE_META: 'deviceMeta' // Stores deviceId, deviceName, isPrimary
 };
 
 const MWK_KEY = 'master_wrapping_key';
@@ -330,6 +331,35 @@ class SignalStoreAdapter {
         await this._rawDelete(STORES.IDENTITIES, address);
     }
 
+    async removeSessionsAndIdentitiesForUser(userId) {
+        const db = await this.dbPromise;
+        const prefix = `${userId}.`;
+        const range = IDBKeyRange.bound(prefix, prefix + '\uffff');
+
+        const deleteKeysFromStore = (storeName) => {
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(storeName, 'readwrite');
+                const store = tx.objectStore(storeName);
+                const req = store.openKeyCursor ? store.openKeyCursor(range) : store.openCursor(range);
+                req.onsuccess = (event) => {
+                    const cursor = event.target.result;
+                    if (cursor) {
+                        store.delete(cursor.key);
+                        cursor.continue();
+                    } else {
+                        resolve();
+                    }
+                };
+                req.onerror = (event) => reject(event.target.error);
+            });
+        };
+
+        await Promise.all([
+            deleteKeysFromStore(STORES.SESSIONS),
+            deleteKeysFromStore(STORES.IDENTITIES)
+        ]);
+    }
+
     /**
      * Secures a full message object from the sender locally, encrypting only the sensitive text.
      */
@@ -337,7 +367,12 @@ class SignalStoreAdapter {
         if (!msgObj || !msgObj.id || !msgObj.conversationId) return;
 
         const encoder = new TextEncoder();
-        const { iv, ct } = await this._encrypt(encoder.encode(msgObj.content));
+        const payload = {
+            content: msgObj.content,
+            attachmentUrl: msgObj.attachmentUrl || null,
+            attachmentMeta: msgObj.attachmentMeta || null
+        };
+        const { iv, ct } = await this._encrypt(encoder.encode(JSON.stringify(payload)));
 
         const record = {
             id: msgObj.id,
@@ -385,6 +420,21 @@ class SignalStoreAdapter {
                 const plainBytes = await this._decrypt(rec.envelope);
                 const plaintext = decoder.decode(plainBytes);
 
+                let content = plaintext;
+                let attachmentUrl = null;
+                let attachmentMeta = null;
+
+                try {
+                    const parsed = JSON.parse(plaintext);
+                    if (parsed && typeof parsed === 'object' && 'content' in parsed) {
+                        content = parsed.content;
+                        attachmentUrl = parsed.attachmentUrl || null;
+                        attachmentMeta = parsed.attachmentMeta || null;
+                    }
+                } catch (e) {
+                    // Fallback to raw string
+                }
+
                 decryptedMessages.push({
                     id: rec.id,
                     conversationId: rec.conversationId,
@@ -392,7 +442,9 @@ class SignalStoreAdapter {
                     createdAt: rec.createdAt,
                     contentType: rec.contentType,
                     sender: rec.sender,
-                    content: plaintext,
+                    content,
+                    attachmentUrl,
+                    attachmentMeta,
                     isDecrypted: true,
                     isLocalCache: true
                 });
@@ -546,6 +598,117 @@ class SignalStoreAdapter {
             })
         );
         return stats;
+    }
+
+    async getDeviceId() {
+        return await this._rawGet(STORES.DEVICE_META, 'device_id');
+    }
+
+    async setDeviceId(deviceId) {
+        await this._rawPut(STORES.DEVICE_META, 'device_id', deviceId);
+    }
+
+    async getDeviceName() {
+        return await this._rawGet(STORES.DEVICE_META, 'device_name');
+    }
+
+    async setDeviceName(deviceName) {
+        await this._rawPut(STORES.DEVICE_META, 'device_name', deviceName);
+    }
+
+    async isPrimaryDevice() {
+        return await this._rawGet(STORES.DEVICE_META, 'is_primary');
+    }
+
+    async setIsPrimaryDevice(isPrimary) {
+        await this._rawPut(STORES.DEVICE_META, 'is_primary', isPrimary);
+    }
+
+    async getAllDecryptedLocalMessages() {
+        const db = await this.dbPromise;
+        const records = await new Promise((resolve, reject) => {
+            const tx = db.transaction(STORES.LOCAL_MESSAGES, 'readonly');
+            const store = tx.objectStore(STORES.LOCAL_MESSAGES);
+            const req = store.getAll();
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = () => reject(req.error);
+        });
+
+        const decoder = new TextDecoder();
+        const decryptedMessages = [];
+        const cutoff = Date.now() - 45 * 24 * 60 * 60 * 1000;
+
+        for (const rec of records) {
+            try {
+                if (new Date(rec.createdAt).getTime() < cutoff) continue;
+                if (!rec.envelope) continue;
+                const plainBytes = await this._decrypt(rec.envelope);
+                const plaintext = decoder.decode(plainBytes);
+
+                let content = plaintext;
+                let attachmentUrl = null;
+                let attachmentMeta = null;
+
+                try {
+                    const parsed = JSON.parse(plaintext);
+                    if (parsed && typeof parsed === 'object' && 'content' in parsed) {
+                        content = parsed.content;
+                        attachmentUrl = parsed.attachmentUrl || null;
+                        attachmentMeta = parsed.attachmentMeta || null;
+                    }
+                } catch (e) {
+                    // Fallback
+                }
+
+                decryptedMessages.push({
+                    id: rec.id,
+                    conversationId: rec.conversationId,
+                    senderId: rec.senderId,
+                    senderDeviceId: rec.senderDeviceId,
+                    createdAt: rec.createdAt,
+                    contentType: rec.contentType,
+                    sender: rec.sender,
+                    content,
+                    attachmentUrl,
+                    attachmentMeta
+                });
+            } catch (err) {
+                console.error(`[SignalStore] Failed to decrypt local message ${rec.id}`, err);
+            }
+        }
+        return decryptedMessages;
+    }
+
+    async saveLocalMessagesBatch(messages) {
+        const db = await this.dbPromise;
+        const tx = db.transaction(STORES.LOCAL_MESSAGES, 'readwrite');
+        const store = tx.objectStore(STORES.LOCAL_MESSAGES);
+        const encoder = new TextEncoder();
+
+        for (const msg of messages) {
+            const payload = {
+                content: msg.content,
+                attachmentUrl: msg.attachmentUrl || null,
+                attachmentMeta: msg.attachmentMeta || null
+            };
+            const { iv, ct } = await this._encrypt(encoder.encode(JSON.stringify(payload)));
+            const record = {
+                id: msg.id,
+                conversationId: msg.conversationId,
+                senderId: msg.senderId,
+                senderDeviceId: msg.senderDeviceId,
+                createdAt: msg.createdAt,
+                contentType: msg.contentType,
+                sender: msg.sender,
+                envelope: { iv, ct }
+            };
+            store.put(record);
+        }
+
+        return new Promise((resolve, reject) => {
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+        });
     }
 
     async deleteAllLocalData() {
