@@ -26,10 +26,10 @@ export function uint8ArrayToBase64(bytes) {
  * @param {number} deviceId - The device ID assigned to the user
  * @returns {Object} Bundle formatted for `establishSession`
  */
-export function decodeServerBundle(serverBundle, deviceId = 1) {
+export function decodeServerBundle(serverBundle) {
     return {
         registrationId: serverBundle.registrationId,
-        deviceId,
+        deviceId: serverBundle.deviceId,
         identityKey: base64ToUint8Array(serverBundle.identityKey),
         
         // Signed Pre-Key mapping
