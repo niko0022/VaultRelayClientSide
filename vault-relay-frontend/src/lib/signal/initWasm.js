@@ -34,7 +34,7 @@ export function ensureWasmReady(init, initIdentity) {
  * If not (fresh device / first login), generates a full pre-key bundle and uploads it.
  * Runs at most once per session thanks to the singleton above.
  */
-function detectDeviceName() {
+export function detectDeviceName() {
     const ua = navigator.userAgent;
     let browser = 'Unknown Browser';
     let os = 'Unknown OS';
@@ -66,6 +66,11 @@ export async function uploadKeysIfNeeded() {
             await signalStoreAdapter.setDeviceId(deviceId);
             await signalStoreAdapter.setIsPrimaryDevice(result.isPrimary || (deviceId === 1));
             console.log(`[initWasm] Registered device ID ${deviceId} (${deviceName})`);
+
+            // Reconnect socket so it picks up the new cookie with deviceId
+            const { socketClient } = await import('../../services/socketClient');
+            socketClient.disconnect();
+            socketClient.connect();
         }
 
         const identityKeyPairBytes = await signalStoreAdapter.getIdentityKeyPair();
