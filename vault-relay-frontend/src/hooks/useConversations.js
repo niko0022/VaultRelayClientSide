@@ -33,12 +33,43 @@ export function useConversations() {
             }
             setNextCursor(data.nextCursor);
             setHasNext(data.hasNext);
+
+            if (!cursor) {
+                reconcileDeletedConversations().catch(err =>
+                    console.warn('[Sync] Tombstone reconciliation failed (non-fatal):', err)
+                );
+            }
         } catch (err) {
             console.error('Failed to load conversations', err);
             setError(err.message);
         } finally {
             setLoading(false);
         }
+    }, []);
+
+    const reconcileDeletedConversations = useCallback(async () => {
+        const userId = await signalStoreAdapter.getStoreUserId();
+        if (!userId) return;
+
+        const storageKey = `vr_last_sync_${userId}`;
+        const lastSyncRaw = localStorage.getItem(storageKey);
+        const lastSync = lastSyncRaw ? new Date(lastSyncRaw) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+        const result = await chatService.getDeletedConversationsSince(lastSync);
+        const ids = result?.deletedConversationIds ?? [];
+
+        if (ids.length > 0) {
+            console.log(`[Sync] Pruning ${ids.length} locally cached deleted conversation(s).`);
+            await Promise.allSettled(
+                ids.flatMap(id => [
+                    signalStoreAdapter.clearLocalMessages(id),
+                    signalStoreAdapter.clearReactions(id),
+                ])
+            );
+        }
+
+        // Always update last-sync timestamp after a successful server response
+        localStorage.setItem(storageKey, new Date().toISOString());
     }, []);
 
     const loadMore = useCallback(() => {
