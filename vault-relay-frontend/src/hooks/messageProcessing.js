@@ -31,21 +31,29 @@ function parseAttachmentEnvelope(plaintext, msgId) {
  */
 async function extractDeviceSlice(msg, currentUserId, isGroup) {
     if (isGroup) return msg.content;
-    if (!msg.content || typeof msg.content !== 'string' || !msg.content.startsWith('{')) {
-        return msg.content;
-    }
-    try {
-        const parsedMap = JSON.parse(msg.content);
-        if (parsedMap && typeof parsedMap === 'object' && !parsedMap.type) {
-            const myDeviceId = await signalStoreAdapter.getDeviceId();
-            const myAddressKey = `${currentUserId}.${myDeviceId}`;
-            const mySlice = parsedMap[myAddressKey];
-            if (!mySlice) throw new Error('No slice found for current device');
-            return mySlice;
+    if (!msg.content) return msg.content;
+
+    let contentObj = msg.content;
+    if (typeof msg.content === 'string') {
+        if (!msg.content.startsWith('{')) return msg.content;
+        try {
+            contentObj = JSON.parse(msg.content);
+        } catch (e) {
+            return msg.content;
         }
-    } catch (e) {
-        // Not a JSON map
     }
+
+    if (contentObj && typeof contentObj === 'object' && !contentObj.type) {
+        const myDeviceId = await signalStoreAdapter.getDeviceId();
+        const myAddressKey = `${currentUserId}.${myDeviceId}`;
+        const mySlice = contentObj[myAddressKey];
+        if (!mySlice) {
+            console.warn(`[extractDeviceSlice] No slice found for device key ${myAddressKey} in message content:`, contentObj);
+            return null;
+        }
+        return mySlice;
+    }
+
     return msg.content;
 }
 
@@ -70,7 +78,9 @@ export async function processMessages(rawMessages, localMap, deps) {
                 continue;
             }
 
-            if (isGroup && msg.senderId !== currentUserId) {
+            const myDeviceId = await signalStoreAdapter.getDeviceId();
+            const isDifferentDevice = msg.senderId !== currentUserId || Number(msg.senderDeviceId) !== Number(myDeviceId);
+            if (isGroup && isDifferentDevice) {
                 try {
                     let parsedMap = msg.content;
                     if (typeof msg.content === 'string') parsedMap = JSON.parse(msg.content);
@@ -194,7 +204,11 @@ export async function processMessages(rawMessages, localMap, deps) {
                 }
 
                 const finalizedMsg = {
-                    ...msg, content: displayContent, isDecrypted: true, contentType: 'TEXT',
+                    ...msg,
+                    conversationId: conversationId || msg.conversationId, // Ensure conversationId is present for local caching
+                    content: displayContent,
+                    isDecrypted: true,
+                    contentType: 'TEXT',
                     attachmentMeta,
                 };
                 processed.push(finalizedMsg);
