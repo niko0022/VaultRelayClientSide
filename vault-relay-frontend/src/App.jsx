@@ -9,6 +9,11 @@ import Messages from './pages/Messages';
 import Contacts from './pages/Contacts';
 import StorageInfo from './pages/StorageInfo';
 import UserSetting from './pages/UserSetting';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
+import VerifyEmail from './pages/VerifyEmail';
+import CheckEmail from './pages/CheckEmail';
+import VerifyAccount from './pages/VerifyAccount';
 
 function App() {
   return (
@@ -19,6 +24,11 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/check-email" element={<CheckEmail />} />
+          <Route path="/verify-account" element={<VerifyAccount />} />
           {/* Protected Routes - These components are physically blocked from mounting if unauthenticated */}
           <Route path="/messages" element={
             <ProtectedRoute>
