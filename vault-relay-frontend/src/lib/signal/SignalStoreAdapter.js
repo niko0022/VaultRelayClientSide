@@ -1,5 +1,4 @@
-const DB_NAME = 'signal-storage';
-const DB_VERSION = 6;
+const DB_VERSION = 7;
 
 const STORES = {
     SESSIONS: 'sessions',
@@ -12,26 +11,40 @@ const STORES = {
     KYBER_USED_COMBOS: 'kyberUsedCombos',  // Replay detection for Kyber pre-key usage
     LOCAL_MESSAGES: 'localMessages', // WhatsApp-style sender history
     REACTIONS: 'reactions', // Stores decrypted reactions per message
-    DEVICE_META: 'deviceMeta' // Stores deviceId, deviceName, isPrimary
+    DEVICE_META: 'deviceMeta', // Stores deviceId, deviceName, isPrimary
+    CHAT_LOCKS: 'chatLocks' // Stores encrypted chat passcode configuration
 };
 
 const MWK_KEY = 'master_wrapping_key';
+const LS_ACTIVE_USER_KEY = 'vr_active_user'; // localStorage key for cold-start DB resolution
 
 class SignalStoreAdapter {
     constructor() {
-        this.dbPromise = this.openDB().catch(err => {
-            console.error('[SignalStore] IndexedDB failed to open:', err);
-            throw new Error(
-                'IndexedDB is unavailable. Signal storage requires IndexedDB — '
-                + 'this may fail in Private/Incognito mode or if storage quota is exceeded.'
-            );
-        });
-        this._mwkPromise = null; // Lazy-initialized
+        this._mwkPromise = null; // Lazy-initialized, reset on user change
+        this._userId = null;
+        this._dbName = null;
+
+        // Create the initial deferred DB promise.
+        // It will be resolved when init(userId) is called.
+        this._createDeferredDb();
+
+        // Cold start: if a user was previously logged in on this browser,
+        // open their per-user DB immediately so it's ready before checkAuth resolves.
+        try {
+            const cachedUserId = localStorage.getItem(LS_ACTIVE_USER_KEY);
+            if (cachedUserId) {
+                this._initInternal(cachedUserId).catch(err => {
+                    console.error('[SignalStore] Cold start failed, will retry on auth:', err);
+                });
+            }
+        } catch (err) {
+            console.warn('[SignalStore] localStorage unavailable during cold start:', err);
+        }
     }
 
-    openDB() {
+    openDB(dbName) {
         return new Promise((resolve, reject) => {
-            const request = indexedDB.open(DB_NAME, DB_VERSION);
+            const request = indexedDB.open(dbName, DB_VERSION);
 
             request.onupgradeneeded = (event) => {
                 const db = event.target.result;
@@ -55,6 +68,80 @@ class SignalStoreAdapter {
             request.onsuccess = (event) => resolve(event.target.result);
             request.onerror = (event) => reject(event.target.error);
         });
+    }
+
+    // ─── Deferred DB & Per-User Initialization ───────────────────────
+
+    _createDeferredDb() {
+        this.dbPromise = new Promise((resolve, reject) => {
+            this._dbResolve = resolve;
+            this._dbReject = reject;
+        });
+    }
+
+    /**
+     * Initializes (or re-initializes) the adapter for a specific user.
+     * Opens the per-user database `signal-storage-<userId>`.
+     * Called by AuthContext after login, register, or checkAuth.
+     * @param {string} userId - The authenticated user's UUID
+     */
+    async init(userId) {
+        if (this._userId === userId) return; // Already open for this user — no-op
+
+        // Switching users: close the old connection and create a fresh deferred promise
+        if (this._userId !== null) {
+            try {
+                const oldDb = await Promise.race([
+                    this.dbPromise,
+                    new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 100))
+                ]);
+                if (oldDb && typeof oldDb.close === 'function') oldDb.close();
+            } catch (err) {
+                // A timeout or failed close is expected when switching users — not fatal
+                console.warn('[SignalStore] Could not cleanly close previous DB connection:', err.message);
+            }
+            this._createDeferredDb();
+            this._mwkPromise = null;
+        }
+
+        await this._initInternal(userId);
+    }
+
+    async _initInternal(userId) {
+        this._userId = userId;
+        this._dbName = `signal-storage-${userId}`;
+        this._mwkPromise = null;
+
+        try {
+            localStorage.setItem(LS_ACTIVE_USER_KEY, userId);
+            const db = await this.openDB(this._dbName);
+            this._dbResolve(db);
+        } catch (err) {
+            console.error('[SignalStore] Failed to open per-user DB:', err);
+            this._dbReject(err);
+            throw err;
+        }
+    }
+
+    /**
+     * Resets the adapter's active user context without deleting the database.
+     * Call on logout so the next user opens their own DB via init().
+     */
+    reset() {
+        this._userId = null;
+        this._dbName = null;
+        this._mwkPromise = null;
+        try { localStorage.removeItem(LS_ACTIVE_USER_KEY); } catch (err) {
+            console.warn('[SignalStore] Failed to clear localStorage on reset:', err);
+        }
+        this._createDeferredDb();
+    }
+
+    /**
+     * Returns true if the adapter has been initialized for a user.
+     */
+    isInitialized() {
+        return this._userId !== null;
     }
 
     // ─── Raw IndexedDB Helpers ────────────────────────────────────────
@@ -601,6 +688,7 @@ class SignalStoreAdapter {
     }
 
     async getDeviceId() {
+        if (!this.isInitialized()) return null;
         return await this._rawGet(STORES.DEVICE_META, 'device_id');
     }
 
@@ -608,7 +696,17 @@ class SignalStoreAdapter {
         await this._rawPut(STORES.DEVICE_META, 'device_id', deviceId);
     }
 
+    async getStoreUserId() {
+        if (!this.isInitialized()) return null;
+        return await this._rawGet(STORES.DEVICE_META, 'user_id');
+    }
+
+    async setStoreUserId(userId) {
+        await this._rawPut(STORES.DEVICE_META, 'user_id', userId);
+    }
+
     async getDeviceName() {
+        if (!this.isInitialized()) return null;
         return await this._rawGet(STORES.DEVICE_META, 'device_name');
     }
 
@@ -617,6 +715,7 @@ class SignalStoreAdapter {
     }
 
     async isPrimaryDevice() {
+        if (!this.isInitialized()) return null;
         return await this._rawGet(STORES.DEVICE_META, 'is_primary');
     }
 
@@ -711,18 +810,75 @@ class SignalStoreAdapter {
         });
     }
 
-    async deleteAllLocalData() {
+    async getChatLock(conversationId) {
+        if (!this.isInitialized()) return null;
+        try {
+            const bytes = await this._encGet(STORES.CHAT_LOCKS, conversationId);
+            if (!bytes) return null;
+            const jsonText = new TextDecoder().decode(bytes);
+            return JSON.parse(jsonText);
+        } catch (err) {
+            console.error('[SignalStore] Failed to decrypt chat lock:', err);
+            return null;
+        }
+    }
+
+    async setChatLock(conversationId, lockData) {
+        if (!this.isInitialized()) return;
+        const jsonText = JSON.stringify(lockData);
+        const bytes = new TextEncoder().encode(jsonText);
+        await this._encPut(STORES.CHAT_LOCKS, conversationId, bytes);
+    }
+
+    async deleteChatLock(conversationId) {
+        if (!this.isInitialized()) return;
+        await this._rawDelete(STORES.CHAT_LOCKS, conversationId);
+    }
+
+    async getAllLockedChatIds() {
+        if (!this.isInitialized()) return [];
         const db = await this.dbPromise;
-        db.close();
+        return await new Promise((resolve, reject) => {
+            const tx = db.transaction(STORES.CHAT_LOCKS, 'readonly');
+            const store = tx.objectStore(STORES.CHAT_LOCKS);
+            const req = store.getAllKeys();
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = () => reject(req.error);
+        });
+    }
+
+    async deleteAllLocalData() {
+        const dbName = this._dbName;
+        if (!dbName) return;
+
+        // Close the current connection before deletion
+        try {
+            const db = await this.dbPromise;
+            db.close();
+        } catch (err) {
+            console.warn('[SignalStore] DB was already closed or not yet open during deletion:', err.message);
+        }
+
+        // Clear the localStorage entry so cold start doesn't try to re-open a deleted DB
+        try { localStorage.removeItem(LS_ACTIVE_USER_KEY); } catch (err) {
+            console.warn('[SignalStore] Failed to clear localStorage during deleteAllLocalData:', err);
+        }
+
+        // Reset internal state — adapter must be re-initialized via init() after this
+        this._userId = null;
+        this._dbName = null;
+        this._mwkPromise = null;
+        this._createDeferredDb();
+
         return new Promise((resolve, reject) => {
-            const deletereq = indexedDB.deleteDatabase(DB_NAME);
-            deletereq.onsuccess = () => resolve()
-            deletereq.onerror = () => reject(deletereq.error)
+            const deletereq = indexedDB.deleteDatabase(dbName);
+            deletereq.onsuccess = () => resolve();
+            deletereq.onerror = () => reject(deletereq.error);
             deletereq.onblocked = () => {
                 console.warn('DB deletion blocked, it might be used by another tab');
                 resolve(false);
-            }
-        })
+            };
+        });
     }
 }
 
