@@ -1,8 +1,10 @@
 import { formatTime } from '../../utils/timeFormat';
 import { resolveConversationName } from '../../utils/conversationUtils';
+import { useChatLock } from '../../hooks/useChatLock';
 
 export default function ConversationListItem({ conv, user, isSelected, selectConversation }) {
     const isUnread = conv.unreadCount > 0;
+    const { isLocked } = useChatLock();
 
     const peer = conv.type === 'DIRECT'
         ? (conv.participantAId === user?.id ? conv.participantB : conv.participantA)
@@ -57,8 +59,11 @@ export default function ConversationListItem({ conv, user, isSelected, selectCon
             {/* Content */}
             <div className="ml-4 flex-1 min-w-0">
                 <div className="flex justify-between items-baseline mb-0.5">
-                    <h3 className={`text-sm truncate ${isUnread || isSelected ? 'font-semibold text-gray-900' : 'font-medium text-gray-900'}`}>
+                    <h3 className={`text-sm truncate flex items-center ${isUnread || isSelected ? 'font-semibold text-gray-900' : 'font-medium text-gray-900'}`}>
                         {peerName}
+                        {isLocked(conv.id) && (
+                            <span className="material-symbols-outlined text-xs text-gray-400 ml-1 select-none">lock</span>
+                        )}
                     </h3>
                     {lastMsg && (
                         <span className={`text-xs whitespace-nowrap ml-2 ${isUnread ? 'text-gray-900 font-medium' : 'text-gray-400'}`}>
