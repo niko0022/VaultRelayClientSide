@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { signalStoreAdapter } from '../lib/signal/SignalStoreAdapter';
 import SideNavBar from '../components/Shared/SideNavBar';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { getAvatarUploadUrl, completeAvatarUpload, deleteAvatar, updateProfile } from '../services/authService';
+import { getAvatarUploadUrl, completeAvatarUpload, deleteAvatar, updateProfile, requestEmailChange } from '../services/authService';
 import LinkedDevices from '../components/Settings/LinkedDevices';
 
 function EditableField({ label, fieldKey, currentValue, onSave }) {
@@ -65,7 +66,37 @@ function EditableField({ label, fieldKey, currentValue, onSave }) {
 export default function UserSetting() {
     const { user, checkAuth, logout, nukeAccount } = useAuth();
     const [avatarUploading, setAvatarUploading] = useState(false);
+    const [isPrimary, setIsPrimary] = useState(false);
+    const [showEmailModal, setShowEmailModal] = useState(false);
+    const [newEmail, setNewEmail] = useState('');
+    const [currentPassword, setCurrentPassword] = useState('');
+    const [emailChangeLoading, setEmailChangeLoading] = useState(false);
+    const [emailChangeStatus, setEmailChangeStatus] = useState({ success: '', error: '' });
     const navigate = useNavigate();
+
+    useEffect(() => {
+        signalStoreAdapter.isPrimaryDevice().then(setIsPrimary).catch(() => setIsPrimary(false));
+    }, []);
+
+    const handleEmailChangeRequest = async (e) => {
+        e.preventDefault();
+        setEmailChangeLoading(true);
+        setEmailChangeStatus({ success: '', error: '' });
+        try {
+            const res = await requestEmailChange({ newEmail, currentPassword });
+            setEmailChangeStatus({ success: res.message || 'Verification link sent!', error: '' });
+            setNewEmail('');
+            setCurrentPassword('');
+            setTimeout(() => {
+                setShowEmailModal(false);
+                setEmailChangeStatus({ success: '', error: '' });
+            }, 5000);
+        } catch (err) {
+            setEmailChangeStatus({ success: '', error: err.message || 'Failed to request email change.' });
+        } finally {
+            setEmailChangeLoading(false);
+        }
+    };
 
     const handleSaveProfile = async (fieldKey, value) => {
         try {
@@ -161,9 +192,17 @@ export default function UserSetting() {
                 <div className="flex-1 overflow-y-auto p-8 lg:p-12 relative">
                     <div className="max-w-4xl mx-auto space-y-8 pb-24">
                     {/* Page Header */}
-                    <header className="space-y-2">
-                        <h1 className="text-3xl lg:text-4xl font-bold text-gray-900">Security Settings</h1>
-                        <p className="text-gray-500 text-sm max-w-xl">Configure your cryptographic identity, session protocols, and vault clearance levels.</p>
+                    <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div className="space-y-2">
+                            <h1 className="text-3xl lg:text-4xl font-bold text-gray-900">Security Settings</h1>
+                            <p className="text-gray-500 text-sm max-w-xl">Configure your cryptographic identity, session protocols, and vault clearance levels.</p>
+                        </div>
+                        <button
+                            onClick={handleLogout}
+                            className="bg-black hover:bg-gray-800 text-white text-xs font-bold uppercase tracking-wider py-3 px-6 rounded-full transition-all active:scale-[0.98] shadow-sm shrink-0 cursor-pointer"
+                        >
+                            Logout
+                        </button>
                     </header>
 
                     <div className="space-y-6">
@@ -222,14 +261,14 @@ export default function UserSetting() {
                                             <input
                                                 className="flex-grow bg-gray-50 border border-gray-100 rounded-full py-2.5 px-4 text-gray-400 focus:outline-none text-sm cursor-not-allowed"
                                                 type="email"
-                                                defaultValue={user?.email || ''}
+                                                value={user?.email || ''}
                                                 readOnly
                                             />
                                             <button
-                                                className="bg-gray-100 text-gray-400 px-5 rounded-full text-xs font-semibold cursor-not-allowed"
-                                                disabled
+                                                onClick={() => setShowEmailModal(true)}
+                                                className="bg-black text-white px-5 rounded-full text-xs font-semibold hover:bg-gray-800 transition-colors cursor-pointer min-w-[70px]"
                                             >
-                                                Immutable
+                                                Change
                                             </button>
                                         </div>
                                     </div>
@@ -242,28 +281,119 @@ export default function UserSetting() {
                         {/* Session Management */}
                         <LinkedDevices />
 
-                        {/* Destruction Protocols (Danger Zone) */}
-                        <section className="bg-red-50/50 rounded-3xl p-8 border border-red-100/60 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
-                            <div className="space-y-1.5 text-center md:text-left">
-                                <h3 className="font-bold text-red-950 text-base flex items-center justify-center md:justify-start gap-2">
-                                    <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                    </svg>
-                                    Destruction Protocols
-                                </h3>
-                                <p className="text-xs text-red-700/60 max-w-xl">Irreversibly delete account, cryptographic keys, and all message data. Warning: This action triggers a recursive wipe across all relay nodes.</p>
-                            </div>
-                            <button
-                                onClick={handleNukeAccount}
-                                className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider py-3.5 px-6 rounded-full transition-all active:scale-[0.98] shadow-sm shrink-0 cursor-pointer"
-                            >
-                                Nuke Everything
-                            </button>
-                        </section>
+                        {/* Destruction Protocols (Danger Zone) — Primary Device only */}
+                        {isPrimary ? (
+                            <section className="bg-red-50/50 rounded-3xl p-8 border border-red-100/60 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
+                                <div className="space-y-1.5 text-center md:text-left">
+                                    <h3 className="font-bold text-red-950 text-base flex items-center justify-center md:justify-start gap-2">
+                                        <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                        </svg>
+                                        Destruction Protocols
+                                    </h3>
+                                    <p className="text-xs text-red-700/60 max-w-xl">Irreversibly delete account, cryptographic keys, and all message data. Warning: This action triggers a recursive wipe across all relay nodes.</p>
+                                </div>
+                                <button
+                                    onClick={handleNukeAccount}
+                                    className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider py-3.5 px-6 rounded-full transition-all active:scale-[0.98] shadow-sm shrink-0 cursor-pointer"
+                                >
+                                    Nuke Everything
+                                </button>
+                            </section>
+                        ) : (
+                            <section className="bg-gray-50/80 rounded-3xl p-8 border border-gray-100/60 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
+                                <div className="space-y-1.5 text-center md:text-left">
+                                    <h3 className="font-bold text-gray-700 text-base flex items-center justify-center md:justify-start gap-2">
+                                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                        </svg>
+                                        Account Deletion Restricted
+                                    </h3>
+                                    <p className="text-xs text-gray-500 max-w-xl">Account deletion can only be performed from your <strong>Primary Device</strong>. To unlink this device, use the Linked Devices section above.</p>
+                                </div>
+                            </section>
+                        )}
                     </div>
                 </div>
                 </div>
             </main>
+
+            {/* Email Change Modal */}
+            {showEmailModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-3xl p-8 max-w-md w-full border border-gray-100 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+                        <button
+                            onClick={() => {
+                                setShowEmailModal(false);
+                                setEmailChangeStatus({ success: '', error: '' });
+                            }}
+                            className="absolute top-6 right-6 text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                        
+                        <h3 className="text-lg font-bold text-gray-900 mb-2">Change Email Address</h3>
+                        <p className="text-xs text-gray-500 mb-6">
+                            Enter your new email address and confirm your identity by typing your current password. We will send a confirmation link to your new email.
+                        </p>
+
+                        <form onSubmit={handleEmailChangeRequest} className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 pl-1">New Email</label>
+                                <input
+                                    type="email"
+                                    required
+                                    value={newEmail}
+                                    onChange={(e) => setNewEmail(e.target.value)}
+                                    placeholder="new@example.com"
+                                    className="w-full bg-gray-50 border border-gray-100 rounded-full py-2.5 px-4 text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-200 transition-all text-sm"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 pl-1">Current Password</label>
+                                <input
+                                    type="password"
+                                    required
+                                    value={currentPassword}
+                                    onChange={(e) => setCurrentPassword(e.target.value)}
+                                    placeholder="••••••••"
+                                    className="w-full bg-gray-50 border border-gray-100 rounded-full py-2.5 px-4 text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-200 transition-all text-sm"
+                                />
+                            </div>
+
+                            {emailChangeStatus.error && (
+                                <p className="text-xs text-red-600 pl-1">{emailChangeStatus.error}</p>
+                            )}
+
+                            {emailChangeStatus.success ? (
+                                <div className="bg-emerald-50 text-emerald-800 text-xs rounded-2xl p-4 border border-emerald-100/60 pl-1">
+                                    {emailChangeStatus.success}
+                                </div>
+                            ) : (
+                                <div className="flex gap-3 pt-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowEmailModal(false)}
+                                        className="flex-1 bg-gray-100 text-gray-700 py-2.5 rounded-full text-xs font-semibold hover:bg-gray-200 transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={emailChangeLoading}
+                                        className="flex-1 bg-black text-white py-2.5 rounded-full text-xs font-semibold hover:bg-gray-800 transition-colors disabled:opacity-50"
+                                    >
+                                        {emailChangeLoading ? 'Requesting...' : 'Send Link'}
+                                    </button>
+                                </div>
+                            )}
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
