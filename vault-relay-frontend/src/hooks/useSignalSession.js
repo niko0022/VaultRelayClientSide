@@ -162,16 +162,14 @@ export function useSignalSession(remoteName) {
         const bodyBytes = typeof body === 'string' ? base64ToUint8Array(body) : body;
 
         const devId = parseInt(senderDeviceId);
-
-        // Lazily instantiate cipher if it exists in IndexedDB but not memory
         let cipher = ciphersRef.current.get(devId);
         if (!cipher) {
             const addressKey = `${remoteName}.${devId}`;
             const sessionRecord = await signalStoreAdapter.loadSession(addressKey);
-            if (!sessionRecord) {
+            if (!sessionRecord && Number(msgType) !== 3) {
                 throw new Error(`No session found for ${addressKey} — cannot decrypt`);
             }
-            // Only create cipher if session is confirmed to exist
+            // Only create cipher if session is confirmed to exist, OR it is a PreKeySignalMessage (type 3)
             let address = addressesRef.current.get(devId);
             if (!address) {
                 address = new SignalProtocolAddress(remoteName, devId);
