@@ -94,6 +94,11 @@ class ChatService {
         });
     }
 
+    async getDeletedConversationsSince(after) {
+        const params = new URLSearchParams({ after: after.toISOString() });
+        return await this._fetch(`/conversations/deleted-since?${params.toString()}`);
+    }
+
     // --- Messages API ---
 
     async getMessages(conversationId, { limit = 50, cursor = null } = {}) {
