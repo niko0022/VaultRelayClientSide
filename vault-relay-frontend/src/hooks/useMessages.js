@@ -125,9 +125,12 @@ export function useMessages(conversation, currentUserId) {
     const processMessagesRef = useRef(processMessages);
     useEffect(() => { processMessagesRef.current = processMessages; }, [processMessages]);
 
+    const loadingRef = useRef(false);
+
     // --- Loading History ---
     const loadMessages = useCallback(async (cursor = null) => {
-        if (!conversationId) return;
+        if (!conversationId || loadingRef.current) return;
+        loadingRef.current = true;
         setLoading(true);
         setError(null);
         try {
@@ -165,11 +168,12 @@ export function useMessages(conversation, currentUserId) {
             setError(err.message);
         } finally {
             setLoading(false);
+            loadingRef.current = false;
         }
     }, [conversationId, currentUserId, processMessages]);
 
     const loadOlder = useCallback(() => {
-        if (hasOlder && nextCursor && !loading) loadMessages(nextCursor);
+        if (hasOlder && nextCursor && !loading && !loadingRef.current) loadMessages(nextCursor);
     }, [hasOlder, nextCursor, loading, loadMessages]);
 
     const handleMessagesRead = useCallback(({ conversationId: eventConversationId, userId }) => {
@@ -297,7 +301,7 @@ export function useMessages(conversation, currentUserId) {
         const handleIncomingMessage = async ({ message }) => {
             if (message.conversationId !== conversationId) return;
             const myDeviceId = await signalStoreAdapter.getDeviceId();
-            if (message.senderId === currentUserId && message.senderDeviceId === myDeviceId) return; // Handled optimistically
+            if (message.senderId === currentUserId && Number(message.senderDeviceId) === Number(myDeviceId)) return; // Handled optimistically
 
             const [processed] = await processMessagesRef.current([message]);
             if (processed) {
@@ -314,37 +318,40 @@ export function useMessages(conversation, currentUserId) {
             socketClient.on('message:edited', async (editedMessage) => {
                 if (editedMessage.conversationId !== conversationId) return;
                 const myDeviceId = await signalStoreAdapter.getDeviceId();
-                if (editedMessage.senderId === currentUserId && editedMessage.senderDeviceId === myDeviceId) return;
+                const editorDevId = editedMessage.editorDeviceId !== undefined ? editedMessage.editorDeviceId : editedMessage.senderDeviceId;
+                if (editedMessage.senderId === currentUserId && Number(editorDevId) === Number(myDeviceId)) return;
 
                 try {
                     let plaintext;
                     if (isGroup) {
-                        plaintext = await decryptGroupMessage(editedMessage.senderId, editedMessage.senderDeviceId, conversationId, editedMessage.content);
+                        plaintext = await decryptGroupMessage(editedMessage.senderId, editorDevId, conversationId, editedMessage.content);
                     } else {
                         let slice = editedMessage.content;
-                        if (slice && typeof slice === 'string' && slice.startsWith('{')) {
-                            try {
-                                const parsedMap = JSON.parse(slice);
-                                if (parsedMap && typeof parsedMap === 'object' && !parsedMap.type) {
-                                    const myAddressKey = `${currentUserId}.${myDeviceId}`;
-                                    slice = parsedMap[myAddressKey];
-                                }
-                            } catch (e) {
-                                // Not a JSON map
+                        // Extract this device's slice from the fanned-out map
+                        let contentObj = slice;
+                        if (typeof slice === 'string') {
+                            if (slice.startsWith('{')) {
+                                try {
+                                    contentObj = JSON.parse(slice);
+                                } catch (_) { }
                             }
                         }
+                        if (contentObj && typeof contentObj === 'object' && !contentObj.type) {
+                            const myAddressKey = `${currentUserId}.${myDeviceId}`;
+                            slice = contentObj[myAddressKey] || null;
+                        }
                         if (!slice) {
-                            throw new Error('No slice for this device');
+                            throw new Error('No slice for this device in edited message');
                         }
 
                         if (editedMessage.senderId === currentUserId) {
                             if (selfDecrypt) {
-                                plaintext = await selfDecrypt(slice, editedMessage.senderDeviceId);
+                                plaintext = await selfDecrypt(slice, editorDevId);
                             } else {
                                 throw new Error('Self decrypt not available');
                             }
                         } else {
-                            plaintext = await directDecrypt(slice, editedMessage.senderDeviceId);
+                            plaintext = await directDecrypt(slice, editorDevId);
                         }
                     }
 
@@ -364,6 +371,7 @@ export function useMessages(conversation, currentUserId) {
             socketClient.on('message:deleted', ({ id, conversationId: evtConvId }) => {
                 if (evtConvId === conversationId) {
                     setMessages(prev => prev.map(m => m.id === id ? { ...m, deleted: true, content: 'Message deleted' } : m));
+                    decryptedCacheRef.current.delete(id);
                     signalStoreAdapter.deleteLocalMessage(id).catch(e => {
                         console.error('Failed to remove local cache for deleted message', e);
                     });
