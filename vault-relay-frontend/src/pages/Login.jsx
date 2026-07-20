@@ -18,7 +18,11 @@ export default function Login() {
             await login({ email, password });
             navigate('/messages');
         } catch (err) {
-            setError(err.message);
+            if (err.message && (err.message.toLowerCase().includes('verify') || err.message.toLowerCase().includes('verified'))) {
+                navigate('/check-email', { state: { email } });
+            } else {
+                setError(err.message);
+            }
         } finally {
             setLoading(false);
         }
@@ -107,7 +111,7 @@ export default function Login() {
                                 />
                                 <span className="text-xs text-gray-500 group-hover:text-gray-800 transition-colors">Remember Me</span>
                             </label>
-                            <a className="text-xs text-gray-500 hover:text-gray-800 transition-colors" href="#">Forgot Password?</a>
+                            <Link to="/forgot-password" className="text-xs text-gray-500 hover:text-gray-800 transition-colors">Forgot Password?</Link>
                         </div>
 
                         {/* Submit Button */}
