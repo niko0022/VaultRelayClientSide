@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import SideNavBar from '../components/Shared/SideNavBar';
 import { useAuth } from '../contexts/AuthContext';
 import { useMessagePage } from '../hooks/useMessagePage';
+import { useChatLock } from '../hooks/useChatLock';
 
 // Components
 import CreateGroupModal from '../components/Messages/CreateGroupModal';
@@ -27,10 +28,30 @@ export default function Messages() {
         reactions, reactToMessage
     } = useMessagePage(user);
 
-    // Close media panel when conversation changes
+    // Chat lock state and hook
+    const { isLocked, isUnlocked, temporarilyUnlockChat } = useChatLock();
+    const [localPasscode, setLocalPasscode] = useState('');
+    const [localUnlockError, setLocalUnlockError] = useState('');
+
+    const isChatLocked = selectedConversationId && isLocked(selectedConversationId) && !isUnlocked(selectedConversationId);
+
+    // Close media panel and clear passcode input when conversation changes
     useEffect(() => {
         setMediaPanelOpen(false);
+        setLocalPasscode('');
+        setLocalUnlockError('');
     }, [selectedConversationId]);
+
+    const handleLocalUnlockSubmit = async (e) => {
+        e.preventDefault();
+        setLocalUnlockError('');
+        const ok = await temporarilyUnlockChat(selectedConversationId, localPasscode);
+        if (ok) {
+            setLocalPasscode('');
+        } else {
+            setLocalUnlockError('Incorrect passcode.');
+        }
+    };
 
     return (
         <div
@@ -63,6 +84,7 @@ export default function Messages() {
                         <div className="flex-1 h-full flex flex-col min-w-0 relative">
                             {/* TopAppBar */}
                             <ActiveChatHeader
+                                conversationId={selectedConversationId}
                                 recipientName={recipientName}
                                 recipientUser={recipientUser}
                                 isSessionReady={isSessionReady}
@@ -73,79 +95,117 @@ export default function Messages() {
                                 mediaPanelOpen={mediaPanelOpen}
                             />
 
-                            {/* Message History */}
-                            <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6 flex flex-col scrollbar-hide">
-                                {messagesError && (
-                                    <div className="bg-error/10 text-error text-xs px-4 py-2 rounded-lg text-center mx-auto max-w-md">
-                                        Failed to load messages: {messagesError}
+                            {isChatLocked ? (
+                                <div className="flex-1 flex flex-col items-center justify-center p-8 bg-gray-50/30">
+                                    <div className="w-16 h-16 rounded-full bg-black/5 border border-black/10 flex items-center justify-center mb-6 shadow-sm">
+                                        <span className="material-symbols-outlined text-gray-900 text-2xl">lock</span>
                                     </div>
-                                )}
-                                {messagesLoading && (
-                                    <div className="flex justify-center py-4">
-                                        <span className="material-symbols-outlined animate-spin text-primary">autorenew</span>
-                                    </div>
-                                )}
-                                {hasOlder && !messagesLoading && (
-                                    <button onClick={loadOlder} className="self-center text-xs text-primary hover:underline py-2">
-                                        Load older messages
-                                    </button>
-                                )}
+                                    <h3 className="text-lg font-bold text-gray-900 mb-2">Locked Conversation</h3>
+                                    <p className="text-xs text-gray-500 mb-6 text-center max-w-xs leading-relaxed">
+                                        This conversation is protected. Enter the Locked Chats passcode to decrypt and read messages.
+                                    </p>
 
-                                <div className="flex justify-center my-4">
-                                    <div className="bg-gray-50 px-4 py-1.5 rounded-full text-[10px] uppercase tracking-[0.2em] text-gray-400 font-semibold border border-gray-100 shadow-sm">
-                                        Communication Tunnel Established
-                                    </div>
-                                </div>
-
-                                {messages.map(msg => (
-                                    <MessageBubble
-                                        key={msg.id}
-                                        msg={msg}
-                                        isMe={msg.senderId === user?.id}
-                                        isEditing={editingMessage?.id === msg.id}
-                                        handleContextMenu={handleContextMenu}
-                                        reactions={reactions[msg.id] || []}
-                                        onReact={(emoji) => reactToMessage(msg.id, emoji)}
-                                        currentUserId={user?.id}
-                                        isBlocked={activeConv?.isBlocked}
-                                    />
-                                ))}
-                                <div ref={messagesEndRef} />
-                            </div>
-
-                            {/* Typing Indicator */}
-                            <div className={`px-6 pb-1 h-7 flex items-center transition-all duration-300 ${typingLabel ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                                {typingLabel && (
-                                    <div className="flex items-center gap-2">
-                                        <div className="flex items-center gap-0.5">
-                                            <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                                            <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                                            <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                                    {localUnlockError && (
+                                        <div className="flex items-center gap-2.5 px-3 py-2 bg-red-50 border border-red-200 rounded-xl mb-4 text-left max-w-xs">
+                                            <p className="text-[11px] text-red-600 font-medium leading-normal">{localUnlockError}</p>
                                         </div>
-                                        <span className="text-xs text-on-surface-variant italic">{typingLabel}...</span>
-                                    </div>
-                                )}
-                            </div>
+                                    )}
 
-                            {/* Secure Input Field */}
-                            <MessageComposer
-                                editingMessage={editingMessage}
-                                selectedFile={selectedFile}
-                                setSelectedFile={setSelectedFile}
-                                composerText={composerText}
-                                isSessionReady={isSessionReady}
-                                cancelEdit={cancelEdit}
-                                setComposerText={setComposerText}
-                                handleTextChange={handleTextChange}
-                                handleKeyDown={handleKeyDown}
-                                handleSend={handleSend}
-                                isBlocked={activeConv?.isBlocked}
-                                blockedById={activeConv?.blockedById}
-                                currentUserId={user?.id}
-                            />
+                                    <form onSubmit={handleLocalUnlockSubmit} className="flex flex-col items-center gap-4 w-full max-w-xs">
+                                        <input
+                                            type="password"
+                                            placeholder="Passcode"
+                                            value={localPasscode}
+                                            onChange={(e) => setLocalPasscode(e.target.value)}
+                                            className="w-full bg-black/5 border border-gray-200 rounded-2xl py-3 px-5 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black/20 focus:bg-white transition-all text-center tracking-widest"
+                                            required
+                                            autoFocus
+                                        />
+                                        <button
+                                            type="submit"
+                                            className="w-full py-3 bg-black text-white text-xs font-semibold rounded-2xl hover:bg-gray-900 transition-colors shadow-md active:scale-95 cursor-pointer"
+                                        >
+                                            Unlock Chat
+                                        </button>
+                                    </form>
+                                </div>
+                            ) : (
+                                <>
+                                    {/* Message History */}
+                                    <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6 flex flex-col scrollbar-hide">
+                                        {messagesError && (
+                                            <div className="bg-error/10 text-error text-xs px-4 py-2 rounded-lg text-center mx-auto max-w-md">
+                                                Failed to load messages: {messagesError}
+                                            </div>
+                                        )}
+                                        {messagesLoading && (
+                                            <div className="flex justify-center py-4">
+                                                <span className="material-symbols-outlined animate-spin text-primary">autorenew</span>
+                                            </div>
+                                        )}
+                                        {hasOlder && !messagesLoading && (
+                                            <button onClick={loadOlder} className="self-center text-xs text-primary hover:underline py-2">
+                                                Load older messages
+                                            </button>
+                                        )}
+
+                                        <div className="flex justify-center my-4">
+                                            <div className="bg-gray-50 px-4 py-1.5 rounded-full text-[10px] uppercase tracking-[0.2em] text-gray-400 font-semibold border border-gray-100 shadow-sm">
+                                                Communication Tunnel Established
+                                            </div>
+                                        </div>
+
+                                        {messages.map(msg => (
+                                            <MessageBubble
+                                                key={msg.id}
+                                                msg={msg}
+                                                isMe={msg.senderId === user?.id}
+                                                isEditing={editingMessage?.id === msg.id}
+                                                handleContextMenu={handleContextMenu}
+                                                reactions={reactions[msg.id] || []}
+                                                onReact={(emoji) => reactToMessage(msg.id, emoji)}
+                                                currentUserId={user?.id}
+                                                isBlocked={activeConv?.isBlocked}
+                                            />
+                                        ))}
+                                        <div ref={messagesEndRef} />
+                                    </div>
+
+                                    {/* Typing Indicator */}
+                                    <div className={`px-6 pb-1 h-7 flex items-center transition-all duration-300 ${typingLabel ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                                        {typingLabel && (
+                                            <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-0.5">
+                                                    <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                                                    <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                                                    <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                                                </div>
+                                                <span className="text-xs text-on-surface-variant italic">{typingLabel}...</span>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Secure Input Field */}
+                                    <MessageComposer
+                                        editingMessage={editingMessage}
+                                        selectedFile={selectedFile}
+                                        setSelectedFile={setSelectedFile}
+                                        composerText={composerText}
+                                        isSessionReady={isSessionReady}
+                                        cancelEdit={cancelEdit}
+                                        setComposerText={setComposerText}
+                                        handleTextChange={handleTextChange}
+                                        handleKeyDown={handleKeyDown}
+                                        handleSend={handleSend}
+                                        isBlocked={activeConv?.isBlocked}
+                                        blockedById={activeConv?.blockedById}
+                                        currentUserId={user?.id}
+                                    />
+                                </>
+                            )}
                         </div>
 
-                        {mediaPanelOpen && (
+                        {mediaPanelOpen && !isChatLocked && (
                             <MediaGalleryPanel
                                 conversationId={selectedConversationId}
                                 onClose={() => setMediaPanelOpen(false)}
