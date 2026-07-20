@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { register } from '../services/authService';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Register() {
     const navigate = useNavigate();
+    const { register } = useAuth();
     const [displayName, setDisplayName] = useState('');
     const [email, setEmail] = useState('');
     const [username, setUsername] = useState('');
@@ -29,7 +30,7 @@ export default function Register() {
         setLoading(true);
         try {
             await register({ email, password, displayName, username });
-            navigate('/messages');
+            navigate('/check-email', { state: { email } });
         } catch (err) {
             setError(err.message);
         } finally {
@@ -58,7 +59,7 @@ export default function Register() {
             {/* Center Registration Card */}
             <div className="relative w-full max-w-[500px] z-10 my-8">
                 <div className="bg-white/40 backdrop-blur-3xl border border-white/60 rounded-[2.5rem] shadow-2xl p-8 md:p-10 flex flex-col">
-                    
+
                     {/* Header */}
                     <h1 className="text-[40px] font-bold text-gray-900 text-center tracking-tight mb-8">
                         Register
