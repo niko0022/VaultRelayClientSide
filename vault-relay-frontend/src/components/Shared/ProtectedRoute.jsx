@@ -23,6 +23,11 @@ function ProtectedRoute({ children }) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
+  if (!user.isVerified) {
+    // User is authenticated but email is unverified. Redirect to check-email interstitial.
+    return <Navigate to="/check-email" state={{ email: user.email }} replace />;
+  }
+
   // User is authenticated, safely render the children (Messages, Contacts, etc.)
   return children;
 }
