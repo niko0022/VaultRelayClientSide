@@ -59,16 +59,35 @@ async function request(endpoint, options = {}) {
 }
 
 export async function register({ email, password, displayName, username }) {
+  let deviceName = 'Web Client';
+  try {
+    const { detectDeviceName } = await import('../lib/signal/initWasm');
+    deviceName = detectDeviceName();
+  } catch (e) {
+    console.warn("Failed to detect device name during registration:", e);
+  }
+
   return request('/auth/register', {
     method: 'POST',
-    body: JSON.stringify({ email, password, displayName, username }),
+    body: JSON.stringify({ email, password, displayName, username, deviceName }),
   });
 }
 
 export async function login({ email, password }) {
+  let deviceId = null;
+  let deviceName = 'Web Client';
+  try {
+    const { signalStoreAdapter } = await import('../lib/signal/SignalStoreAdapter');
+    deviceId = await signalStoreAdapter.getDeviceId();
+    const { detectDeviceName } = await import('../lib/signal/initWasm');
+    deviceName = detectDeviceName();
+  } catch (e) {
+    console.warn("Failed to get device ID or name from storage during login:", e);
+  }
+
   return request('/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, deviceId, deviceName }),
   });
 }
 
@@ -111,4 +130,50 @@ export async function deleteAvatar() {
 
 export async function deleteAccount() {
   return request('/users/me', { method: 'DELETE' });
+}
+
+export async function forgotPassword(email) {
+  return request('/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function validateResetToken(token) {
+  return request(`/auth/reset-password/${encodeURIComponent(token)}`);
+}
+
+export async function resetPassword({ token, newPassword }) {
+  return request('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({ token, newPassword }),
+  });
+}
+
+export async function requestEmailChange({ newEmail, currentPassword }) {
+  return request('/users/me/email/request-change', {
+    method: 'POST',
+    body: JSON.stringify({ newEmail, currentPassword }),
+  });
+}
+
+export async function confirmEmailChange(token) {
+  return request('/users/me/email/confirm', {
+    method: 'POST',
+    body: JSON.stringify({ token }),
+  });
+}
+
+export async function resendVerification(email) {
+  return request('/auth/resend-verification', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function verifyAccount(token) {
+  return request('/auth/verify-account', {
+    method: 'POST',
+    body: JSON.stringify({ token }),
+  });
 }
