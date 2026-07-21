@@ -3,7 +3,7 @@ import { signalStoreAdapter } from '../lib/signal/SignalStoreAdapter';
 import SideNavBar from '../components/Shared/SideNavBar';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { getAvatarUploadUrl, completeAvatarUpload, deleteAvatar, updateProfile, requestEmailChange } from '../services/authService';
+import { getAvatarUploadUrl, completeAvatarUpload, deleteAvatar, updateProfile, requestEmailChange, changePassword } from '../services/authService';
 import LinkedDevices from '../components/Settings/LinkedDevices';
 
 function EditableField({ label, fieldKey, currentValue, onSave }) {
@@ -72,6 +72,10 @@ export default function UserSetting() {
     const [currentPassword, setCurrentPassword] = useState('');
     const [emailChangeLoading, setEmailChangeLoading] = useState(false);
     const [emailChangeStatus, setEmailChangeStatus] = useState({ success: '', error: '' });
+    const [showPasswordModal, setShowPasswordModal] = useState(false);
+    const [newPassword, setNewPassword] = useState('');
+    const [passwordChangeLoading, setPasswordChangeLoading] = useState(false);
+    const [passwordChangeStatus, setPasswordChangeStatus] = useState({ success: '', error: '' });
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -95,6 +99,26 @@ export default function UserSetting() {
             setEmailChangeStatus({ success: '', error: err.message || 'Failed to request email change.' });
         } finally {
             setEmailChangeLoading(false);
+        }
+    };
+
+    const handlePasswordChange = async (e) => {
+        e.preventDefault();
+        setPasswordChangeLoading(true);
+        setPasswordChangeStatus({ success: '', error: '' });
+        try {
+            const res = await changePassword({ currentPassword, newPassword });
+            setPasswordChangeStatus({ success: res.message || 'Password updated!', error: '' });
+            setCurrentPassword('');
+            setNewPassword('');
+            setTimeout(() => {
+                setShowPasswordModal(false);
+                setPasswordChangeStatus({ success: '', error: '' });
+            }, 3000);
+        } catch (err) {
+            setPasswordChangeStatus({ success: '', error: err.message || 'Failed to change password.' });
+        } finally {
+            setPasswordChangeLoading(false);
         }
     };
 
@@ -274,6 +298,23 @@ export default function UserSetting() {
                                     </div>
                                     <EditableField label="Username" fieldKey="username" currentValue={user?.username} onSave={handleSaveProfile} />
                                     <EditableField label="Display Name" fieldKey="displayName" currentValue={user?.displayName} onSave={handleSaveProfile} />
+                                    <div className="space-y-1.5">
+                                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider pl-1">Password</label>
+                                        <div className="flex gap-2">
+                                            <input
+                                                className="flex-grow bg-gray-50 border border-gray-100 rounded-full py-2.5 px-4 text-gray-400 focus:outline-none text-sm cursor-not-allowed"
+                                                type="password"
+                                                value="••••••••"
+                                                readOnly
+                                            />
+                                            <button
+                                                onClick={() => setShowPasswordModal(true)}
+                                                className="bg-black text-white px-5 rounded-full text-xs font-semibold hover:bg-gray-800 transition-colors cursor-pointer min-w-[70px]"
+                                            >
+                                                Change
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </section>
@@ -387,6 +428,82 @@ export default function UserSetting() {
                                         className="flex-1 bg-black text-white py-2.5 rounded-full text-xs font-semibold hover:bg-gray-800 transition-colors disabled:opacity-50"
                                     >
                                         {emailChangeLoading ? 'Requesting...' : 'Send Link'}
+                                    </button>
+                                </div>
+                            )}
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Change Password Modal */}
+            {showPasswordModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-3xl p-8 max-w-md w-full border border-gray-100 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+                        <button
+                            onClick={() => {
+                                setShowPasswordModal(false);
+                                setPasswordChangeStatus({ success: '', error: '' });
+                            }}
+                            className="absolute top-6 right-6 text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+
+                        <h3 className="text-lg font-bold text-gray-900 mb-2">Change Password</h3>
+                        <p className="text-xs text-gray-500 mb-6">
+                            Enter your current password to confirm your identity, then choose a new one. Must be at least 6 characters, contain 1 uppercase letter and 3 digits.
+                        </p>
+
+                        <form onSubmit={handlePasswordChange} className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 pl-1">Current Password</label>
+                                <input
+                                    type="password"
+                                    required
+                                    value={currentPassword}
+                                    onChange={(e) => setCurrentPassword(e.target.value)}
+                                    placeholder="••••••••"
+                                    className="w-full bg-gray-50 border border-gray-100 rounded-full py-2.5 px-4 text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-200 transition-all text-sm"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 pl-1">New Password</label>
+                                <input
+                                    type="password"
+                                    required
+                                    value={newPassword}
+                                    onChange={(e) => setNewPassword(e.target.value)}
+                                    placeholder="••••••••"
+                                    className="w-full bg-gray-50 border border-gray-100 rounded-full py-2.5 px-4 text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-200 transition-all text-sm"
+                                />
+                            </div>
+
+                            {passwordChangeStatus.error && (
+                                <p className="text-xs text-red-600 pl-1">{passwordChangeStatus.error}</p>
+                            )}
+
+                            {passwordChangeStatus.success ? (
+                                <div className="bg-emerald-50 text-emerald-800 text-xs rounded-2xl p-4 border border-emerald-100/60">
+                                    {passwordChangeStatus.success}
+                                </div>
+                            ) : (
+                                <div className="flex gap-3 pt-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPasswordModal(false)}
+                                        className="flex-1 bg-gray-100 text-gray-700 py-2.5 rounded-full text-xs font-semibold hover:bg-gray-200 transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={passwordChangeLoading}
+                                        className="flex-1 bg-black text-white py-2.5 rounded-full text-xs font-semibold hover:bg-gray-800 transition-colors disabled:opacity-50"
+                                    >
+                                        {passwordChangeLoading ? 'Updating...' : 'Update Password'}
                                     </button>
                                 </div>
                             )}
