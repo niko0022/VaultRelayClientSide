@@ -177,3 +177,10 @@ export async function verifyAccount(token) {
     body: JSON.stringify({ token }),
   });
 }
+
+export async function changePassword({ currentPassword, newPassword }) {
+  return request('/users/me/password', {
+    method: 'PATCH',
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+}
