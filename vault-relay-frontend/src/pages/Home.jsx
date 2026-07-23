@@ -55,11 +55,6 @@ export default function Home() {
                         </div>
                         <span className="font-black text-gray-900 text-lg tracking-tight">VaultRelay</span>
                     </div>
-                    <div className="hidden md:flex items-center gap-8">
-                        <a className="text-gray-900 font-semibold text-sm border-b-2 border-gray-900 pb-0.5" href="#">Home</a>
-                        <a className="text-gray-500 hover:text-gray-900 font-medium text-sm transition-colors" href="#">Features</a>
-                        <a className="text-gray-500 hover:text-gray-900 font-medium text-sm transition-colors" href="#">Security</a>
-                    </div>
                     <div className="flex items-center gap-2">
                         <Link to="/login">
                             <button className="bg-gray-900 text-white px-5 py-2 rounded-full font-semibold text-sm hover:bg-gray-800 active:scale-95 transition-all cursor-pointer">
