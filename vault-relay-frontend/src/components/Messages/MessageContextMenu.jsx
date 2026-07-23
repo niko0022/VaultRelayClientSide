@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import ConfirmationModal from '../Shared/ConfirmationModal';
 
 const EDIT_WINDOW_MS = 48 * 60 * 60 * 1000;
 
@@ -56,6 +57,7 @@ export default function MessageContextMenu({
 export function useMessageActions({ deleteSecureMessage, user }) {
     const [editingMessage, setEditingMessage] = useState(null);   // { id, content }
     const [contextMenu, setContextMenu] = useState(null);         // { x, y, messageId }
+    const [deleteTargetId, setDeleteTargetId] = useState(null);
 
     const handleContextMenu = useCallback((e, msg) => {
         if (msg.senderId !== user?.id || msg.deleted) return;
@@ -68,22 +70,43 @@ export function useMessageActions({ deleteSecureMessage, user }) {
         setContextMenu(null);
     }, []);
 
-    const handleDeleteClick = useCallback(async (msgId) => {
+    const handleDeleteClick = useCallback((msgId) => {
         setContextMenu(null);
-        if (window.confirm('Delete this message for everyone?')) {
-            try {
-                await deleteSecureMessage(msgId);
-            } catch (err) {
-                alert(err.message);
-            }
+        setDeleteTargetId(msgId);
+    }, []);
+
+    const confirmDelete = useCallback(async () => {
+        if (!deleteTargetId) return;
+        try {
+            await deleteSecureMessage(deleteTargetId);
+        } catch (err) {
+            console.error('Delete message error:', err);
+        } finally {
+            setDeleteTargetId(null);
         }
-    }, [deleteSecureMessage]);
+    }, [deleteTargetId, deleteSecureMessage]);
+
+    const cancelDelete = useCallback(() => {
+        setDeleteTargetId(null);
+    }, []);
 
     const handleCloseMenu = useCallback(() => setContextMenu(null), []);
 
     const cancelEdit = useCallback(() => {
         setEditingMessage(null);
     }, []);
+
+    // Helper component to render inside Messages.jsx
+    const DeleteConfirmModal = useCallback(() => (
+        <ConfirmationModal
+            isOpen={Boolean(deleteTargetId)}
+            onClose={cancelDelete}
+            onConfirm={confirmDelete}
+            title="Delete Message"
+            message="Are you sure you want to delete this message for everyone?"
+            confirmText="Delete"
+        />
+    ), [deleteTargetId, cancelDelete, confirmDelete]);
 
     return {
         editingMessage,
@@ -94,5 +117,6 @@ export function useMessageActions({ deleteSecureMessage, user }) {
         handleDeleteClick,
         handleCloseMenu,
         cancelEdit,
+        DeleteConfirmModal,
     };
 }
