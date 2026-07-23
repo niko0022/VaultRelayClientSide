@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { getAvatarUploadUrl, completeAvatarUpload, deleteAvatar, updateProfile, requestEmailChange, changePassword } from '../services/authService';
 import LinkedDevices from '../components/Settings/LinkedDevices';
+import ConfirmationModal from '../components/Shared/ConfirmationModal';
 
 function EditableField({ label, fieldKey, currentValue, onSave }) {
     const [isEditing, setIsEditing] = useState(false);
@@ -53,9 +54,9 @@ function EditableField({ label, fieldKey, currentValue, onSave }) {
                 ) : (
                     <button
                         onClick={() => { setNewValue(currentValue || ''); setIsEditing(true); }}
-                        className="bg-gray-100 text-gray-700 px-5 rounded-full text-xs font-semibold hover:bg-gray-200 transition-colors cursor-pointer min-w-[70px]"
+                        className="bg-black text-white px-5 rounded-full text-xs font-semibold hover:bg-gray-800 transition-colors cursor-pointer min-w-[70px]"
                     >
-                        Edit
+                        Change
                     </button>
                 )}
             </div>
@@ -76,6 +77,11 @@ export default function UserSetting() {
     const [newPassword, setNewPassword] = useState('');
     const [passwordChangeLoading, setPasswordChangeLoading] = useState(false);
     const [passwordChangeStatus, setPasswordChangeStatus] = useState({ success: '', error: '' });
+    const [showNukeModal, setShowNukeModal] = useState(false);
+    const [nukeConfirmText, setNukeConfirmText] = useState('');
+    const [nukeLoading, setNukeLoading] = useState(false);
+    const [nukeError, setNukeError] = useState('');
+    const [showRemoveAvatarModal, setShowRemoveAvatarModal] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -143,17 +149,18 @@ export default function UserSetting() {
         }
     };
 
-    const handleNukeAccount = async () => {
-        const confirm1 = window.confirm("WARNING: This will permanently delete your account, all friends, and all messages. Are you absolutely sure?");
-        if (!confirm1) return;
-        const confirm2 = window.prompt("Type 'DELETE' to confirm");
-        if (confirm2 !== "DELETE") return;
+    const handleNukeAccount = async (e) => {
+        e.preventDefault();
+        if (nukeConfirmText !== 'DELETE') return;
 
+        setNukeLoading(true);
+        setNukeError('');
         try {
             await nukeAccount();
-            navigate("/register");
+            navigate('/register');
         } catch (err) {
-            alert("Account deletion failed: " + err.message);
+            setNukeError(err.message || 'Account deletion failed.');
+            setNukeLoading(false);
         }
     };
 
@@ -190,16 +197,15 @@ export default function UserSetting() {
     };
 
     const handleAvatarRemove = async () => {
-        if (!window.confirm("Remove your avatar?")) return;
         setAvatarUploading(true);
         try {
             await deleteAvatar();
             await checkAuth();
         } catch (err) {
             console.error("Avatar removal failed", err);
-            alert("Failed to remove avatar.");
         } finally {
             setAvatarUploading(false);
+            setShowRemoveAvatarModal(false);
         }
     };
 
@@ -215,147 +221,162 @@ export default function UserSetting() {
             <main className="flex-1 bg-[#F8FAF9] rounded-2xl shadow-xl shadow-black/10 flex flex-col overflow-hidden">
                 <div className="flex-1 overflow-y-auto p-8 lg:p-12 relative">
                     <div className="max-w-4xl mx-auto space-y-8 pb-24">
-                    {/* Page Header */}
-                    <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                        <div className="space-y-2">
+                        {/* Page Header */}
+                        <header className="space-y-2">
                             <h1 className="text-3xl lg:text-4xl font-bold text-gray-900">Security Settings</h1>
                             <p className="text-gray-500 text-sm max-w-xl">Configure your cryptographic identity, session protocols, and vault clearance levels.</p>
-                        </div>
-                        <button
-                            onClick={handleLogout}
-                            className="bg-black hover:bg-gray-800 text-white text-xs font-bold uppercase tracking-wider py-3 px-6 rounded-full transition-all active:scale-[0.98] shadow-sm shrink-0 cursor-pointer"
-                        >
-                            Logout
-                        </button>
-                    </header>
+                        </header>
 
-                    <div className="space-y-6">
-                        {/* Account Identity Section */}
-                        <section className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm space-y-6">
-                            <div className="flex items-center justify-between">
-                                <h2 className="text-xl font-bold flex items-center gap-2 text-gray-950">
-                                    <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                    </svg>
-                                    Account Identity
-                                </h2>
-                                <span className="text-[10px] font-bold text-[#1D7A54] bg-[#EAF5F0] px-2.5 py-1 rounded-full uppercase tracking-wider">Active Node</span>
-                            </div>
-                            <div className="flex flex-col md:flex-row gap-8 items-start">
-                                <div className="flex flex-col items-center gap-2 shrink-0">
-                                    <div className="relative group">
-                                        <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-gray-100 bg-gray-50 flex items-center justify-center relative shadow-sm">
-                                            {user?.avatarUrl ? (
-                                                <img className="w-full h-full object-cover" alt="User avatar" src={user.avatarUrl} />
-                                            ) : (
-                                                <svg className="w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                                </svg>
-                                            )}
-                                            {avatarUploading && (
-                                                <div className="absolute inset-0 bg-white/85 flex items-center justify-center">
-                                                    <svg className="animate-spin h-6 w-6 text-black" fill="none" viewBox="0 0 24 24">
-                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                                    </svg>
-                                                </div>
-                                            )}
-                                        </div>
-                                        <label className="absolute bottom-0 right-0 p-2 bg-black text-white rounded-full shadow-lg hover:scale-110 transition-transform cursor-pointer">
-                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                            </svg>
-                                            <input type="file" className="hidden" accept="image/*" onChange={handleAvatarUpload} disabled={avatarUploading} />
-                                        </label>
-                                    </div>
-                                    {user?.avatarUrl && (
-                                        <button
-                                            onClick={handleAvatarRemove}
-                                            disabled={avatarUploading}
-                                            className="text-xs text-red-500 hover:text-red-700 font-bold transition-colors mt-2 cursor-pointer"
-                                        >
-                                            Remove Avatar
-                                        </button>
-                                    )}
-                                </div>
-                                <div className="flex-grow w-full space-y-4">
-                                    <div className="space-y-1.5">
-                                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider pl-1">Email</label>
-                                        <div className="flex gap-2">
-                                            <input
-                                                className="flex-grow bg-gray-50 border border-gray-100 rounded-full py-2.5 px-4 text-gray-400 focus:outline-none text-sm cursor-not-allowed"
-                                                type="email"
-                                                value={user?.email || ''}
-                                                readOnly
-                                            />
-                                            <button
-                                                onClick={() => setShowEmailModal(true)}
-                                                className="bg-black text-white px-5 rounded-full text-xs font-semibold hover:bg-gray-800 transition-colors cursor-pointer min-w-[70px]"
-                                            >
-                                                Change
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <EditableField label="Username" fieldKey="username" currentValue={user?.username} onSave={handleSaveProfile} />
-                                    <EditableField label="Display Name" fieldKey="displayName" currentValue={user?.displayName} onSave={handleSaveProfile} />
-                                    <div className="space-y-1.5">
-                                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider pl-1">Password</label>
-                                        <div className="flex gap-2">
-                                            <input
-                                                className="flex-grow bg-gray-50 border border-gray-100 rounded-full py-2.5 px-4 text-gray-400 focus:outline-none text-sm cursor-not-allowed"
-                                                type="password"
-                                                value="••••••••"
-                                                readOnly
-                                            />
-                                            <button
-                                                onClick={() => setShowPasswordModal(true)}
-                                                className="bg-black text-white px-5 rounded-full text-xs font-semibold hover:bg-gray-800 transition-colors cursor-pointer min-w-[70px]"
-                                            >
-                                                Change
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </section>
-
-                        {/* Session Management */}
-                        <LinkedDevices />
-
-                        {/* Destruction Protocols (Danger Zone) — Primary Device only */}
-                        {isPrimary ? (
-                            <section className="bg-red-50/50 rounded-3xl p-8 border border-red-100/60 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
-                                <div className="space-y-1.5 text-center md:text-left">
-                                    <h3 className="font-bold text-red-950 text-base flex items-center justify-center md:justify-start gap-2">
-                                        <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        <div className="space-y-6">
+                            {/* Account Identity Section */}
+                            <section className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm space-y-6">
+                                <div className="flex items-center justify-between">
+                                    <h2 className="text-xl font-bold flex items-center gap-2 text-gray-950">
+                                        <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                         </svg>
-                                        Destruction Protocols
+                                        Account Identity
+                                    </h2>
+                                    <span className="text-[10px] font-bold text-[#1D7A54] bg-[#EAF5F0] px-2.5 py-1 rounded-full uppercase tracking-wider">Active Node</span>
+                                </div>
+                                <div className="flex flex-col md:flex-row gap-8 items-start">
+                                    <div className="flex flex-col items-center gap-2 shrink-0">
+                                        <div className="relative group">
+                                            <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-gray-100 bg-gray-50 flex items-center justify-center relative shadow-sm">
+                                                {user?.avatarUrl ? (
+                                                    <img className="w-full h-full object-cover" alt="User avatar" src={user.avatarUrl} />
+                                                ) : (
+                                                    <svg className="w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                                    </svg>
+                                                )}
+                                                {avatarUploading && (
+                                                    <div className="absolute inset-0 bg-white/85 flex items-center justify-center">
+                                                        <svg className="animate-spin h-6 w-6 text-black" fill="none" viewBox="0 0 24 24">
+                                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                                        </svg>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <label className="absolute bottom-0 right-0 p-2 bg-black text-white rounded-full shadow-lg hover:scale-110 transition-transform cursor-pointer">
+                                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                </svg>
+                                                <input type="file" className="hidden" accept="image/*" onChange={handleAvatarUpload} disabled={avatarUploading} />
+                                            </label>
+                                        </div>
+                                        {user?.avatarUrl && (
+                                            <button
+                                                onClick={() => setShowRemoveAvatarModal(true)}
+                                                disabled={avatarUploading}
+                                                className="text-xs text-red-500 hover:text-red-700 font-bold transition-colors mt-2 cursor-pointer"
+                                            >
+                                                Remove Avatar
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div className="flex-grow w-full space-y-4">
+                                        <div className="space-y-1.5">
+                                            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider pl-1">Email</label>
+                                            <div className="flex gap-2">
+                                                <input
+                                                    className="flex-grow bg-gray-50 border border-gray-100 rounded-full py-2.5 px-4 text-gray-400 focus:outline-none text-sm cursor-not-allowed"
+                                                    type="email"
+                                                    value={user?.email || ''}
+                                                    readOnly
+                                                />
+                                                <button
+                                                    onClick={() => setShowEmailModal(true)}
+                                                    className="bg-black text-white px-5 rounded-full text-xs font-semibold hover:bg-gray-800 transition-colors cursor-pointer min-w-[70px]"
+                                                >
+                                                    Change
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <EditableField label="Username" fieldKey="username" currentValue={user?.username} onSave={handleSaveProfile} />
+                                        <EditableField label="Display Name" fieldKey="displayName" currentValue={user?.displayName} onSave={handleSaveProfile} />
+                                        <div className="space-y-1.5">
+                                            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider pl-1">Password</label>
+                                            <div className="flex gap-2">
+                                                <input
+                                                    className="flex-grow bg-gray-50 border border-gray-100 rounded-full py-2.5 px-4 text-gray-400 focus:outline-none text-sm cursor-not-allowed"
+                                                    type="password"
+                                                    value="••••••••"
+                                                    readOnly
+                                                />
+                                                <button
+                                                    onClick={() => setShowPasswordModal(true)}
+                                                    className="bg-black text-white px-5 rounded-full text-xs font-semibold hover:bg-gray-800 transition-colors cursor-pointer min-w-[70px]"
+                                                >
+                                                    Change
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            {/* Session Management */}
+                            <LinkedDevices />
+
+                            {/* Account Session Actions */}
+                            <section className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
+                                <div className="space-y-1.5 text-center md:text-left">
+                                    <h3 className="font-bold text-gray-950 text-base flex items-center justify-center md:justify-start gap-2">
+                                        <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                        </svg>
+                                        Account Session
                                     </h3>
-                                    <p className="text-xs text-red-700/60 max-w-xl">Irreversibly delete account, cryptographic keys, and all message data. Warning: This action triggers a recursive wipe across all relay nodes.</p>
+                                    <p className="text-xs text-gray-500 max-w-xl">Sign out of your active session on this device. Your encrypted key store remains safe on this device.</p>
                                 </div>
                                 <button
-                                    onClick={handleNukeAccount}
-                                    className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider py-3.5 px-6 rounded-full transition-all active:scale-[0.98] shadow-sm shrink-0 cursor-pointer"
+                                    onClick={handleLogout}
+                                    className="bg-black hover:bg-gray-800 text-white text-xs font-bold uppercase tracking-wider py-3.5 px-6 rounded-full transition-all active:scale-[0.98] shadow-sm shrink-0 cursor-pointer"
                                 >
-                                    Nuke Everything
+                                    Log Out
                                 </button>
                             </section>
-                        ) : (
-                            <section className="bg-gray-50/80 rounded-3xl p-8 border border-gray-100/60 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
-                                <div className="space-y-1.5 text-center md:text-left">
-                                    <h3 className="font-bold text-gray-700 text-base flex items-center justify-center md:justify-start gap-2">
-                                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                        </svg>
-                                        Account Deletion Restricted
-                                    </h3>
-                                    <p className="text-xs text-gray-500 max-w-xl">Account deletion can only be performed from your <strong>Primary Device</strong>. To unlink this device, use the Linked Devices section above.</p>
-                                </div>
-                            </section>
-                        )}
+
+                            {/* Destruction Protocols (Danger Zone) — Primary Device only */}
+                            {isPrimary ? (
+                                <section className="bg-red-50/50 rounded-3xl p-8 border border-red-100/60 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
+                                    <div className="space-y-1.5 text-center md:text-left">
+                                        <h3 className="font-bold text-red-950 text-base flex items-center justify-center md:justify-start gap-2">
+                                            <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                            </svg>
+                                            Destruction Protocols
+                                        </h3>
+                                        <p className="text-xs text-red-700/60 max-w-xl">Irreversibly delete account, cryptographic keys, and all message data. Warning: This action triggers a recursive wipe across all relay nodes.</p>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            setShowNukeModal(true);
+                                            setNukeConfirmText('');
+                                            setNukeError('');
+                                        }}
+                                        className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider py-3.5 px-6 rounded-full transition-all active:scale-[0.98] shadow-sm shrink-0 cursor-pointer"
+                                    >
+                                        Nuke Everything
+                                    </button>
+                                </section>
+                            ) : (
+                                <section className="bg-gray-50/80 rounded-3xl p-8 border border-gray-100/60 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
+                                    <div className="space-y-1.5 text-center md:text-left">
+                                        <h3 className="font-bold text-gray-700 text-base flex items-center justify-center md:justify-start gap-2">
+                                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                            </svg>
+                                            Account Deletion Restricted
+                                        </h3>
+                                        <p className="text-xs text-gray-500 max-w-xl">Account deletion can only be performed from your <strong>Primary Device</strong>. To unlink this device, use the Linked Devices section above.</p>
+                                    </div>
+                                </section>
+                            )}
+                        </div>
                     </div>
-                </div>
                 </div>
             </main>
 
@@ -374,7 +395,7 @@ export default function UserSetting() {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                             </svg>
                         </button>
-                        
+
                         <h3 className="text-lg font-bold text-gray-900 mb-2">Change Email Address</h3>
                         <p className="text-xs text-gray-500 mb-6">
                             Enter your new email address and confirm your identity by typing your current password. We will send a confirmation link to your new email.
@@ -511,6 +532,87 @@ export default function UserSetting() {
                     </div>
                 </div>
             )}
+            {/* Account Destruction (Nuke) Modal */}
+            {showNukeModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl p-8 max-w-md w-full border border-red-100 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+                        <button
+                            onClick={() => {
+                                setShowNukeModal(false);
+                                setNukeConfirmText('');
+                                setNukeError('');
+                            }}
+                            className="absolute top-6 right-6 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+
+                        <div className="w-12 h-12 rounded-2xl bg-red-50 border border-red-100 flex items-center justify-center mb-6">
+                            <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                        </div>
+
+                        <h3 className="text-xl font-bold text-gray-950 mb-2">Confirm Account Destruction</h3>
+                        <p className="text-xs text-gray-600 mb-6 leading-relaxed">
+                            This action is <strong className="text-red-600">irreversible</strong>. Your user account, cryptographic keys, messages, and files will be permanently deleted across all relay nodes.
+                        </p>
+
+                        <form onSubmit={handleNukeAccount} className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 pl-1">
+                                    Type <span className="font-bold text-red-600">DELETE</span> to confirm
+                                </label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={nukeConfirmText}
+                                    onChange={(e) => setNukeConfirmText(e.target.value)}
+                                    placeholder="DELETE"
+                                    className="w-full bg-red-50/50 border border-red-200 rounded-full py-2.5 px-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-red-400 transition-all text-sm font-semibold tracking-wider"
+                                />
+                            </div>
+
+                            {nukeError && (
+                                <p className="text-xs text-red-600 pl-1">{nukeError}</p>
+                            )}
+
+                            <div className="flex gap-3 pt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowNukeModal(false);
+                                        setNukeConfirmText('');
+                                        setNukeError('');
+                                    }}
+                                    className="flex-1 bg-gray-100 text-gray-700 py-2.5 rounded-full text-xs font-semibold hover:bg-gray-200 transition-colors cursor-pointer"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={nukeConfirmText !== 'DELETE' || nukeLoading}
+                                    className="flex-1 bg-red-600 text-white py-2.5 rounded-full text-xs font-semibold hover:bg-red-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-sm cursor-pointer"
+                                >
+                                    {nukeLoading ? 'Destroying...' : 'Permanently Delete'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Remove Avatar Confirmation Modal */}
+            <ConfirmationModal
+                isOpen={showRemoveAvatarModal}
+                onClose={() => setShowRemoveAvatarModal(false)}
+                onConfirm={handleAvatarRemove}
+                title="Remove Avatar"
+                message="Are you sure you want to remove your profile avatar picture?"
+                confirmText="Remove"
+            />
         </div>
     );
 }
