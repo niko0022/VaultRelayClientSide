@@ -113,7 +113,7 @@ export function useMessagePage(user) {
         contextMenu, handleContextMenu,
         handleEditClick: rawEditClick,
         handleDeleteClick, handleCloseMenu,
-        cancelEdit,
+        cancelEdit, DeleteConfirmModal,
     } = useMessageActions({ deleteSecureMessage, user });
 
     const handleEditClick = (msg) => {
@@ -192,7 +192,7 @@ export function useMessagePage(user) {
         activeConv, recipientId, recipientName, recipientUser, isGroupChat,
         messages, messagesLoading, messagesError, hasOlder, loadOlder, typingUsers, typingLabel, isSessionReady,
         composerText, setComposerText, menuOpen, setMenuOpen, showGroupModal, setShowGroupModal, selectedFile, setSelectedFile,
-        editingMessage, contextMenu, handleContextMenu, handleEditClick, handleDeleteClick, handleCloseMenu, cancelEdit,
+        editingMessage, contextMenu, handleContextMenu, handleEditClick, handleDeleteClick, handleCloseMenu, cancelEdit, DeleteConfirmModal,
         messagesEndRef,
         handleTextChange, handleSend, handleKeyDown, handleDeleteConversation,
         reactions, reactToMessage
