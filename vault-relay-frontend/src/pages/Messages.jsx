@@ -22,7 +22,7 @@ export default function Messages() {
         activeConv, recipientName, recipientUser,
         messages, messagesLoading, messagesError, hasOlder, loadOlder, isSessionReady,
         composerText, setComposerText, menuOpen, setMenuOpen, showGroupModal, setShowGroupModal, selectedFile, setSelectedFile,
-        editingMessage, contextMenu, handleContextMenu, handleEditClick, handleDeleteClick, handleCloseMenu, cancelEdit,
+        editingMessage, contextMenu, handleContextMenu, handleEditClick, handleDeleteClick, handleCloseMenu, cancelEdit, DeleteConfirmModal,
         messagesEndRef,
         handleTextChange, handleSend, handleKeyDown, handleDeleteConversation, typingLabel,
         reactions, reactToMessage
@@ -224,6 +224,8 @@ export default function Messages() {
                 onDelete={handleDeleteClick}
                 onClose={handleCloseMenu}
             />
+
+            <DeleteConfirmModal />
         </div>
     );
 }
