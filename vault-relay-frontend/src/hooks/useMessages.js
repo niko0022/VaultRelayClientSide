@@ -102,11 +102,9 @@ export function useMessages(conversation, currentUserId) {
             if (isRemove) {
                 newList = list.filter(r => !(r.userId === userId && r.emoji === emoji));
             } else {
-                if (list.some(r => r.userId === userId && r.emoji === emoji)) {
-                    newList = list;
-                } else {
-                    newList = [...list, { messageId, userId, emoji }];
-                }
+                // Enforce 1 emoji per user per message: strip out any previous reaction by this user
+                const withoutUser = list.filter(r => r.userId !== userId);
+                newList = [...withoutUser, { messageId, userId, emoji }];
             }
             return { ...prev, [messageId]: newList };
         });
@@ -145,6 +143,8 @@ export function useMessages(conversation, currentUserId) {
             const map = {};
             list.forEach(rec => {
                 if (!map[rec.messageId]) map[rec.messageId] = [];
+                // Filter to keep only the latest reaction per user per message
+                map[rec.messageId] = map[rec.messageId].filter(r => r.userId !== rec.userId);
                 map[rec.messageId].push(rec);
             });
             setReactions(map);
@@ -202,38 +202,49 @@ export function useMessages(conversation, currentUserId) {
         if (!targetMessage) return;
 
         const list = reactions[messageId] || [];
-        const existing = list.find(r => r.userId === currentUserId && r.emoji === emoji);
-        const isRemove = !!existing;
+        const existingUserReaction = list.find(r => r.userId === currentUserId);
+        const isSameEmoji = existingUserReaction?.emoji === emoji;
+        const oldEmoji = existingUserReaction?.emoji;
+
+        const deps = {
+            conversationId, isGroup, conversation, currentUserId,
+            directHasSession, directEncrypt, directEstablish, remoteDirectUserId,
+            encryptGroupMessage, generateGroupDistributionMap, distributedRef,
+            selfHasSession, selfEncrypt
+        };
 
         try {
-            // Optimistic update
+            // Optimistic update: clear old reaction by this user, then add new if not toggle-removing
             setReactions(prev => {
                 const curList = prev[messageId] || [];
+                const withoutUser = curList.filter(r => r.userId !== currentUserId);
                 let newList;
-                if (isRemove) {
-                    newList = curList.filter(r => !(r.userId === currentUserId && r.emoji === emoji));
+                if (isSameEmoji) {
+                    newList = withoutUser;
                 } else {
-                    newList = [...curList, { messageId, userId: currentUserId, emoji }];
+                    newList = [...withoutUser, { messageId, userId: currentUserId, emoji }];
                 }
                 return { ...prev, [messageId]: newList };
             });
 
-            await sendReaction(emoji, targetMessage, isRemove, {
-                conversationId, isGroup, conversation, currentUserId,
-                directHasSession, directEncrypt, directEstablish, remoteDirectUserId,
-                encryptGroupMessage, generateGroupDistributionMap, distributedRef,
-                selfHasSession, selfEncrypt
-            });
+            // If replacing a different emoji, send remove event for old emoji first
+            if (oldEmoji && !isSameEmoji) {
+                await sendReaction(oldEmoji, targetMessage, true, deps).catch(e => {
+                    console.warn('Failed to remove previous reaction:', e);
+                });
+            }
+
+            // Send new emoji reaction (or remove if clicking same emoji)
+            await sendReaction(emoji, targetMessage, isSameEmoji, deps);
         } catch (err) {
             console.error('Failed to react to message:', err);
-            // Revert optimistic update
+            // Revert optimistic update on failure
             setReactions(prev => {
                 const curList = prev[messageId] || [];
-                let newList;
-                if (isRemove) {
-                    newList = [...curList, { messageId, userId: currentUserId, emoji }];
-                } else {
-                    newList = curList.filter(r => !(r.userId === currentUserId && r.emoji === emoji));
+                const withoutUser = curList.filter(r => r.userId !== currentUserId);
+                let newList = withoutUser;
+                if (oldEmoji) {
+                    newList = [...withoutUser, { messageId, userId: currentUserId, emoji: oldEmoji }];
                 }
                 return { ...prev, [messageId]: newList };
             });
