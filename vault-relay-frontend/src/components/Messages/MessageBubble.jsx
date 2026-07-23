@@ -52,11 +52,11 @@ export default function MessageBubble({ msg, isMe, isEditing, handleContextMenu,
                 )}
 
                 {/* Message bubble */}
-                <div className={`p-4 shadow-sm text-[15px] leading-relaxed break-words transition-all ${isDeleted
-                    ? 'bg-gray-100 text-gray-400 italic rounded-2xl'
+                <div className={`p-4 text-[15px] leading-relaxed break-words transition-all ${isDeleted
+                    ? 'bg-gray-100 text-gray-400 italic rounded-2xl border border-gray-200'
                     : isMe
-                        ? 'bg-white text-gray-900 rounded-3xl rounded-br-sm'
-                        : 'bg-[#0A0A0A] text-white rounded-3xl rounded-tl-sm'
+                        ? 'bg-gray-950 text-white rounded-3xl rounded-br-xs shadow-sm'
+                        : 'bg-white text-gray-900 rounded-3xl rounded-tl-xs border border-gray-200/80 shadow-sm'
                     } ${msg.isPending ? 'opacity-70' : ''} ${isEditing ? 'ring-2 ring-blue-400' : ''}`}>
                     {isDeleted ? (
                         <p className="flex items-center gap-1.5 text-gray-400">
