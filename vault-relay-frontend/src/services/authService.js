@@ -73,16 +73,13 @@ export async function register({ email, password, displayName, username }) {
   });
 }
 
-export async function login({ email, password }) {
-  let deviceId = null;
+export async function login({ email, password, deviceId = null }) {
   let deviceName = 'Web Client';
   try {
-    const { signalStoreAdapter } = await import('../lib/signal/SignalStoreAdapter');
-    deviceId = await signalStoreAdapter.getDeviceId();
     const { detectDeviceName } = await import('../lib/signal/initWasm');
     deviceName = detectDeviceName();
   } catch (e) {
-    console.warn("Failed to get device ID or name from storage during login:", e);
+    console.warn("Failed to detect device name during login:", e);
   }
 
   return request('/auth/login', {
