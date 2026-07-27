@@ -1,38 +1,14 @@
 [workspace]
 # When adding new members, consider updating the log filter in rust/bridge/shared/src/logging.rs.
 members = [
-    "rust/attest",
+    "rust/core",
     "rust/crypto",
-    "rust/device-transfer",
-    "rust/keytrans",
-    "rust/media",
-    "rust/message-backup",
-    "rust/net",
-    "rust/net/chat",
-    "rust/net/infra",
-    "rust/account-keys",
-    "rust/poksho",
     "rust/protocol",
-    "rust/usernames",
-    "rust/zkcredential",
-    "rust/zkgroup",
-    "rust/bridge/ffi",
-    "rust/bridge/jni",
-    "rust/bridge/jni/impl",
-    "rust/bridge/jni/testing",
-    "rust/bridge/node",
 ]
 default-members = [
+    "rust/core",
     "rust/crypto",
-    "rust/device-transfer",
-    "rust/media",
-    "rust/message-backup",
-    "rust/account-keys",
-    "rust/poksho",
     "rust/protocol",
-    "rust/usernames",
-    "rust/zkcredential",
-    "rust/zkgroup",
 ]
 resolver = "2" # so that our dev-dependency features don't leak into products
 
