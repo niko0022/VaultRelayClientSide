@@ -162,7 +162,9 @@ export async function processMessages(rawMessages, localMap, deps) {
 
         if (msg.contentType === 'SIGNAL_ENCRYPTED') {
             if (localMap.has(msg.id)) {
-                processed.push(localMap.get(msg.id));
+                const cached = localMap.get(msg.id);
+                // Always use the fresh sender from the server so avatarUrl stays current
+                processed.push({ ...cached, sender: msg.sender ?? cached.sender });
                 continue;
             }
 
