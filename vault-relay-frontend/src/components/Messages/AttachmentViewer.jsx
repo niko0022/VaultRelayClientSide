@@ -114,11 +114,11 @@ export default function AttachmentViewer({ attachmentUrl, attachmentMeta }) {
                     <img
                         src={objectUrl}
                         alt={fileName || 'Image'}
-                        className="max-w-xs max-h-72 rounded-lg object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                        className="w-full max-h-72 rounded-lg object-contain cursor-pointer hover:opacity-90 transition-opacity"
                         onClick={() => window.open(objectUrl, '_blank')}
                     />
                     {fileName && (
-                        <p className="text-[10px] text-gray-400 mt-1 truncate max-w-xs">
+                        <p className="text-[10px] text-gray-400 mt-1 truncate">
                             {fileName} {fileSize ? `· ${prettyBytes(fileSize)}` : ''}
                         </p>
                     )}
