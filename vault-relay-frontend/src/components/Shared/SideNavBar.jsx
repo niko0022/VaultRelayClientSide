@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 
 const iconClass = ({ isActive }) =>
   `p-3 rounded-full transition-colors ${isActive
@@ -13,6 +14,12 @@ const activeIconClass = ({ isActive }) =>
   }`;
 
 export default function SideNavBar({ className = "" }) {
+  const { user } = useAuth();
+
+  const userInitial = (user?.displayName || user?.username)
+    .charAt(0)
+    .toUpperCase();
+
   return (
     <aside
       className={`w-20 lg:w-24 flex flex-col items-center py-8 relative h-full ${className}`}
@@ -55,10 +62,19 @@ export default function SideNavBar({ className = "" }) {
         </NavLink>
       </div>
 
-      {/* Bottom Logo Badge */}
-      <div className="w-12 h-12 bg-black rounded-2xl flex items-center justify-center text-white font-bold text-xl cursor-pointer shadow-md">
-        V
-      </div>
+      {/* User Profile Avatar / Initial Badge */}
+      <NavLink
+        to="/settings"
+        className="w-12 h-12 bg-black rounded-2xl flex items-center justify-center text-white font-bold text-xl cursor-pointer shadow-md overflow-hidden hover:opacity-90 transition-opacity"
+        title={user?.displayName || user?.username || 'Profile'}
+      >
+        {user?.avatarUrl ? (
+          <img src={user.avatarUrl} alt="User Avatar" className="w-full h-full object-cover" />
+        ) : (
+          userInitial
+        )}
+      </NavLink>
     </aside>
   );
 }
+
