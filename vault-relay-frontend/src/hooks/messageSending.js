@@ -27,6 +27,7 @@ export async function sendSecureMessage(plaintext, attachment, {
     if (!conversationId) return;
     try {
         let attachmentUrl = null;
+        let attachmentMeta = null;
         let plaintextToEncrypt = plaintext;
 
         // If an attachment is provided, encrypt it and upload to S3
@@ -44,15 +45,19 @@ export async function sendSecureMessage(plaintext, attachment, {
             });
 
             attachmentUrl = publicUrl;
-
-            // Package the AES key + file metadata into the plaintext that Signal will encrypt
-            plaintextToEncrypt = JSON.stringify({
-                text: plaintext || '',
+            // Store the AES key + iv so the sender can also decrypt their own attachment
+            attachmentMeta = {
                 aesKey: keyBase64,
                 iv: ivBase64,
                 fileName: attachment.name || 'file',
                 mimeType: attachment.type || 'application/octet-stream',
                 fileSize: attachment.size || 0,
+            };
+
+            // Package the AES key + file metadata into the plaintext that Signal will encrypt
+            plaintextToEncrypt = JSON.stringify({
+                text: plaintext || '',
+                ...attachmentMeta,
             });
         }
 
@@ -97,7 +102,7 @@ export async function sendSecureMessage(plaintext, attachment, {
             id: tempId, conversationId, senderId: currentUserId,
             content: plaintext || '', contentType: 'TEXT',
             attachmentUrl: attachmentUrl || null,
-            attachmentMeta: attachment ? { fileName: attachment.name, mimeType: attachment.type, fileSize: attachment.size } : null,
+            attachmentMeta: attachmentMeta || null,
             createdAt: new Date().toISOString(), isPending: true
         };
         setMessages(prev => [...prev, optimisticMsg]);
@@ -117,7 +122,7 @@ export async function sendSecureMessage(plaintext, attachment, {
                 const finalizedMsg = {
                     ...ack.message, content: plaintext || '', contentType: 'TEXT',
                     attachmentUrl: attachmentUrl || null,
-                    attachmentMeta: attachment ? { fileName: attachment.name, mimeType: attachment.type, fileSize: attachment.size } : null,
+                    attachmentMeta: attachmentMeta || null,
                 };
                 setMessages(prev => prev.map(m => m.id === tempId ? finalizedMsg : m));
                 try {
