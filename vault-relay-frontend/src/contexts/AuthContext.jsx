@@ -67,7 +67,17 @@ export function AuthProvider({ children }) {
                 didAutoInit = true;
             }
 
-            const result = await authLogin(credentials);
+            // Read deviceId AFTER the DB is open so we always find the existing device
+            let deviceId = null;
+            if (signalStoreAdapter.isInitialized()) {
+                try {
+                    deviceId = await signalStoreAdapter.getDeviceId();
+                } catch (e) {
+                    console.warn('[Auth] Failed to read deviceId from store:', e);
+                }
+            }
+
+            const result = await authLogin({ ...credentials, deviceId });
 
             // Init the per-user DB before writing any device meta into it
             const loginUser = result?.user || (result?.id ? result : null);
