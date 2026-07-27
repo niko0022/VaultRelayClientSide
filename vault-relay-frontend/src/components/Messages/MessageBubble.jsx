@@ -51,30 +51,53 @@ export default function MessageBubble({ msg, isMe, isEditing, handleContextMenu,
                     </span>
                 )}
 
-                {/* Message bubble */}
-                <div className={`p-4 text-[15px] leading-relaxed break-words transition-all ${isDeleted
-                    ? 'bg-gray-100 text-gray-400 italic rounded-2xl border border-gray-200'
-                    : isMe
-                        ? 'bg-gray-950 text-white rounded-3xl rounded-br-xs shadow-sm'
-                        : 'bg-white text-gray-900 rounded-3xl rounded-tl-xs border border-gray-200/80 shadow-sm'
-                    } ${msg.isPending ? 'opacity-70' : ''} ${isEditing ? 'ring-2 ring-blue-400' : ''}`}>
-                    {isDeleted ? (
+                {/* Message bubble(s) — split into two if both text and attachment are present */}
+                {isDeleted ? (
+                    <div className={`inline-flex flex-col p-4 text-[15px] leading-relaxed break-words transition-all max-w-xs w-auto bg-gray-100 text-gray-400 italic rounded-2xl border border-gray-200 ${msg.isPending ? 'opacity-70' : ''}`}>
                         <p className="flex items-center gap-1.5 text-gray-400">
                             <span className="material-symbols-outlined text-[14px]">block</span>
                             This message was deleted
                         </p>
-                    ) : (
-                        <>
-                            {msg.content && <p>{msg.content}</p>}
-                            {(msg.attachmentUrl || msg.attachmentMeta) && (
+                    </div>
+                ) : (
+                    <>
+                        {/* Text bubble — only shown when there is text */}
+                        {msg.content && (
+                            <div className={`inline-flex flex-col p-4 text-[15px] leading-relaxed break-words transition-all max-w-xs w-auto ${
+                                isMe
+                                    ? 'bg-gray-950 text-white rounded-3xl rounded-br-xs shadow-sm'
+                                    : 'bg-white text-gray-900 rounded-3xl rounded-tl-xs border border-gray-200/80 shadow-sm'
+                            } ${msg.isPending ? 'opacity-70' : ''} ${isEditing ? 'ring-2 ring-blue-400' : ''}`}>
+                                <p>{msg.content}</p>
+                            </div>
+                        )}
+
+                        {/* Attachment bubble — only shown when there is an attachment */}
+                        {(msg.attachmentUrl || msg.attachmentMeta) && (
+                            <div className={`inline-flex flex-col p-3 text-[15px] leading-relaxed break-words transition-all max-w-xs w-auto ${
+                                isMe
+                                    ? 'bg-gray-950 text-white rounded-3xl rounded-br-xs shadow-sm'
+                                    : 'bg-white text-gray-900 rounded-3xl rounded-tl-xs border border-gray-200/80 shadow-sm'
+                            } ${msg.isPending ? 'opacity-70' : ''}`}>
                                 <AttachmentViewer
                                     attachmentUrl={msg.attachmentUrl}
                                     attachmentMeta={msg.attachmentMeta}
                                 />
-                            )}
-                        </>
-                    )}
-                </div>
+                            </div>
+                        )}
+
+                        {/* Single bubble fallback — attachment-only, no text (keeps original layout) */}
+                        {!msg.content && !msg.attachmentUrl && !msg.attachmentMeta && (
+                            <div className={`inline-flex flex-col p-4 text-[15px] leading-relaxed break-words transition-all max-w-xs w-auto ${
+                                isMe
+                                    ? 'bg-gray-950 text-white rounded-3xl rounded-br-xs shadow-sm'
+                                    : 'bg-white text-gray-900 rounded-3xl rounded-tl-xs border border-gray-200/80 shadow-sm'
+                            } ${msg.isPending ? 'opacity-70' : ''} ${isEditing ? 'ring-2 ring-blue-400' : ''}`}>
+                                <p className="text-gray-400 italic text-sm">Empty message</p>
+                            </div>
+                        )}
+                    </>
+                )}
 
                 {/* REACTION PILLS */}
                 {!isDeleted && reactions && reactions.length > 0 && (
