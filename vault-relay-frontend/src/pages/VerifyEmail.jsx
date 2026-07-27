@@ -31,19 +31,23 @@ export default function VerifyEmail() {
                 // Update the localStorage email→userId mapping so login works with new email
                 if (confirmed) {
                     const newHash = await hashEmail(confirmed);
-                    // Find and migrate the existing userId mapping
-                    // Look for any vr_hash_* key and see if a userId is stored
+                    // Find the existing userId mapping and collect stale hash keys for cleanup
                     let userId = null;
+                    const staleKeys = [];
                     for (let i = 0; i < localStorage.length; i++) {
                         const key = localStorage.key(i);
                         if (key && key.startsWith('vr_hash_')) {
-                            userId = localStorage.getItem(key);
-                            break; // Use the first (and only) mapped userId
+                            if (!userId) userId = localStorage.getItem(key);
+                            staleKeys.push(key);
                         }
                     }
+                    // Save new hash first, then clean up old ones
                     if (userId && newHash) {
                         localStorage.setItem(`vr_hash_${newHash}`, userId);
                     }
+                    staleKeys.forEach(key => {
+                        if (key !== `vr_hash_${newHash}`) localStorage.removeItem(key);
+                    });
                 }
 
                 setStatus('success');
