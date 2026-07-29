@@ -35,27 +35,27 @@ graph TD
 
 ### Frontend (`vault-relay-frontend/`)
 
-|      Layer       ||                Technology                | |  Version  |
-|------------------||------------------------------------------| |-----------|
-| **Framework**    || React                                    | |    19.x   |
-| **Build Tool**   || Vite                                     | |    8.x    |
-| **Routing**      || React Router DOM                         | |    7.x    |
-| **Styling**      || Tailwind CSS                             | |    4.x    |
-| **Real-time**    || Socket.IO Client                         | |    4.x    |
-| **Testing**      || Vitest + Testing Library                 | |    4.x    |
-| **Crypto**       || Signal Protocol via WASM                 | |     —     |
-| **Local Storage**|| IndexedDB (Encrypted per-user databases) | |     —     |
+| Layer | Technology | Version |
+|---|---|---|
+| **Framework** | React | 19.x |
+| **Build Tool** | Vite | 8.x |
+| **Routing** | React Router DOM | 7.x |
+| **Styling** | Tailwind CSS | 4.x |
+| **Real-time** | Socket.IO Client | 4.x |
+| **Testing** | Vitest + Testing Library | 4.x |
+| **Crypto** | Signal Protocol via WASM | — |
+| **Local Storage** | IndexedDB (Encrypted per-user databases) | — |
 
 ### WASM Bridge (`signal-wasm-bridge/`)
 
-|       Layer       ||                     Technology                       |
-|-------------------||------------------------------------------------------|
-| **Language**      || Rust (2021 edition)                                  |
-| **Signal Impl**   || `libsignal-protocol` + `libsignal-core` (local fork) |
-| **WASM Tooling**  || `wasm-bindgen` + `wasm-bindgen-futures`              |
-| **Post-Quantum**  || Kyber-1024 (via libsignal KEM)                       |
-| **Serialization** || `serde` + `base64`                                   |
-| **Build**         || `wasm-pack` → produces `pkg/` consumed by Vite       |
+| Layer | Technology |
+|---|---|
+| **Language** | Rust (2024 edition) |
+| **Signal Impl** | `libsignal-protocol` + `libsignal-core` |
+| **WASM Tooling** | `wasm-bindgen` + `wasm-bindgen-futures` |
+| **Post-Quantum** | Kyber-1024 (via libsignal KEM) |
+| **Serialization** | `serde` + `base64` |
+| **Build** | `wasm-pack` → produces `pkg/` consumed by Vite |
 
 ### Signal Protocol Library (`libsignal/`)
 
@@ -192,15 +192,8 @@ VaultRelayClientSide/
 ### 1. Clone the Repository
 
 ```bash
-git clone --recurse-submodules https://github.com/your-org/VaultRelayClientSide.git
+git clone https://github.com/your-org/VaultRelayClientSide.git
 cd VaultRelayClientSide
-```
-
-> **Note:** `--recurse-submodules` is required to pull the `libsignal/` dependency.
-
-If you already cloned without submodules:
-```bash
-git submodule update --init --recursive
 ```
 
 ### 2. Build the WASM Bridge
@@ -268,35 +261,35 @@ Output is generated in `vault-relay-frontend/dist/`. This can be served by any s
 
 Each user gets an isolated IndexedDB database named `signal-storage-<userId>`. This stores:
 
-|     Store      ||                 Contents                       |
-|----------------||------------------------------------------------|
-| `identityKeys` || Local identity key pair + remote identity keys |
-| `sessions`     || Active Signal sessions with other users        |
-| `preKeys`      || One-time pre-keys (consumed on first message)  |
-| `signedPreKeys`|| Signed pre-keys (rotated periodically)         |
-| `kyberPreKeys` || Kyber-1024 post-quantum pre-keys               |
-| `senderKeys`   || Group sender keys for each group member        |
-| `deviceMeta`   || Local device ID, primary status                |
-| `chatLocks`    || Per-conversation password hashes               |
-| `messages`     || Cached decrypted messages for offline access   |
+| Store | Contents |
+|---|---|
+| `identityKeys` | Local identity key pair + remote identity keys |
+| `sessions` | Active Signal sessions with other users |
+| `preKeys` | One-time pre-keys (consumed on first message) |
+| `signedPreKeys` | Signed pre-keys (rotated periodically) |
+| `kyberPreKeys` | Kyber-1024 post-quantum pre-keys |
+| `senderKeys` | Group sender keys for each group member |
+| `deviceMeta` | Local device ID, primary status |
+| `chatLocks` | Per-conversation password hashes |
+| `messages` | Cached decrypted messages for offline access |
 
 ### WASM Bridge API
 
 The `signal-wasm-bridge` Rust crate exposes these key APIs to JavaScript:
 
-|                         Function                               ||                        Purpose                       |
-|----------------------------------------------------------------||------------------------------------------------------|
-| `initIdentity()`                                               || Generate or load identity key pair + registration ID |
-| `generatePreKeys(start, count)`                                || Generate batch of one-time pre-keys                  |
-| `generateSignedPreKey(identity, id)`                           || Generate a signed pre-key                            |
-| `generateKyberPreKey(identity, id)`                            || Generate a Kyber-1024 pre-key                        |
-| `SessionBuilder.processPreKeyBundleWithKyber(...)`             || Establish a new session via X3DH + PQXDH             |
-| `SessionCipher.encrypt(plaintext)`                             || Encrypt a message for a 1:1 session                  |
-| `SessionCipher.decrypt(type, ciphertext)`                      || Decrypt a received message                           |
-| `GroupSessionBuilder.createSenderKeyDistributionMessage(...)`  || Create group key distribution                        |
-| `GroupSessionBuilder.processSenderKeyDistributionMessage(...)` || Process received group key                           |
-| `GroupCipher.encrypt(distributionId, plaintext)`               || Encrypt for group                                    |
-| `GroupCipher.decrypt(ciphertext)`                              || Decrypt group message                                |
+| Function | Purpose |
+|---|---|
+| `initIdentity()` | Generate or load identity key pair + registration ID |
+| `generatePreKeys(start, count)` | Generate batch of one-time pre-keys |
+| `generateSignedPreKey(identity, id)` | Generate a signed pre-key |
+| `generateKyberPreKey(identity, id)` | Generate a Kyber-1024 pre-key |
+| `SessionBuilder.processPreKeyBundleWithKyber(...)` | Establish a new session via X3DH + PQXDH |
+| `SessionCipher.encrypt(plaintext)` | Encrypt a message for a 1:1 session |
+| `SessionCipher.decrypt(type, ciphertext)` | Decrypt a received message |
+| `GroupSessionBuilder.createSenderKeyDistributionMessage(...)` | Create group key distribution |
+| `GroupSessionBuilder.processSenderKeyDistributionMessage(...)` | Process received group key |
+| `GroupCipher.encrypt(distributionId, plaintext)` | Encrypt for group |
+| `GroupCipher.decrypt(ciphertext)` | Decrypt group message |
 
 ---
 
