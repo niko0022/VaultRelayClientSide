@@ -76,6 +76,7 @@ export default function ActiveChatHeader({
     };
 
     return (
+        <>
         <header className="h-20 px-8 flex items-center justify-between border-b border-gray-200 bg-white/60 backdrop-blur-md z-10 shrink-0">
             <div className="flex items-center">
                 {/* Avatar */}
@@ -166,24 +167,26 @@ export default function ActiveChatHeader({
                      )}
                  </div>
              </div>
- 
-             <ConfirmationModal
-                 isOpen={confirmDeleteOpen}
-                 onClose={() => setConfirmDeleteOpen(false)}
-                 onConfirm={onDeleteConversation}
-                 title="Delete Conversation"
-                 message="Are you sure you want to permanently delete this entire conversation for everyone?"
-                 confirmText="Delete"
-             />
-
-            <PasscodeModal
-                isOpen={isPasscodeModalOpen}
-                mode={passcodeMode}
-                onClose={() => setIsPasscodeModalOpen(false)}
-                onSubmit={handlePasscodeSubmit}
-                errorMsg={passcodeError}
-                title={passcodeMode === 'set' ? 'Set Locked Chats Passcode' : 'Verify Passcode to Unlock'}
-            />
         </header>
+
+        {/* Modals rendered outside header to prevent backdrop-blur stacking context issues */}
+        <ConfirmationModal
+            isOpen={confirmDeleteOpen}
+            onClose={() => setConfirmDeleteOpen(false)}
+            onConfirm={onDeleteConversation}
+            title="Delete Conversation"
+            message="Are you sure you want to permanently delete this entire conversation for everyone?"
+            confirmText="Delete"
+        />
+
+        <PasscodeModal
+            isOpen={isPasscodeModalOpen}
+            mode={passcodeMode}
+            onClose={() => setIsPasscodeModalOpen(false)}
+            onSubmit={handlePasscodeSubmit}
+            errorMsg={passcodeError}
+            title={passcodeMode === 'set' ? 'Set Locked Chats Passcode' : 'Verify Passcode to Unlock'}
+        />
+        </>
     );
 }
