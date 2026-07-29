@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { validateResetToken, resetPassword } from '../services/authService';
 
@@ -14,8 +14,13 @@ export default function ResetPassword() {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
 
+    const hasCalledRef = useRef(false);
+
     useEffect(() => {
         if (!token) { setTokenState('invalid'); return; }
+        if (hasCalledRef.current) return;
+        hasCalledRef.current = true;
+
         validateResetToken(token)
             .then(() => setTokenState('valid'))
             .catch(() => setTokenState('invalid'));

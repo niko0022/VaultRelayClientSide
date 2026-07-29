@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { verifyAccount } from '../services/authService';
 
@@ -10,12 +10,16 @@ export default function VerifyAccount() {
     const [status, setStatus] = useState('verifying'); // 'verifying' | 'success' | 'error'
     const [errorMsg, setErrorMsg] = useState('');
 
+    const hasCalledRef = useRef(false);
+
     useEffect(() => {
         if (!token) {
             setStatus('error');
             setErrorMsg('No activation token was found in the URL.');
             return;
         }
+        if (hasCalledRef.current) return;
+        hasCalledRef.current = true;
 
         verifyAccount(token)
             .then(() => {

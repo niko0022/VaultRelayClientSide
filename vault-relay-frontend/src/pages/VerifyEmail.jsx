@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { confirmEmailChange } from '../services/authService';
 
@@ -20,34 +20,30 @@ export default function VerifyEmail() {
     const [newEmail, setNewEmail] = useState('');
     const [errorMsg, setErrorMsg] = useState('');
 
+    const hasCalledRef = useRef(false);
+
     useEffect(() => {
         if (!token) { setStatus('error'); setErrorMsg('No verification token found in the URL.'); return; }
+        if (hasCalledRef.current) return;
+        hasCalledRef.current = true;
 
         confirmEmailChange(token)
             .then(async (data) => {
                 const confirmed = data?.newEmail;
+                const targetUserId = data?.userId;
                 setNewEmail(confirmed || '');
 
                 // Update the localStorage email→userId mapping so login works with new email
-                if (confirmed) {
+                if (confirmed && targetUserId) {
                     const newHash = await hashEmail(confirmed);
-                    // Find the existing userId mapping and collect stale hash keys for cleanup
-                    let userId = null;
-                    const staleKeys = [];
-                    for (let i = 0; i < localStorage.length; i++) {
+                    // Remove any old hash mappings for this user
+                    for (let i = localStorage.length - 1; i >= 0; i--) {
                         const key = localStorage.key(i);
-                        if (key && key.startsWith('vr_hash_')) {
-                            if (!userId) userId = localStorage.getItem(key);
-                            staleKeys.push(key);
+                        if (key && key.startsWith('vr_hash_') && localStorage.getItem(key) === targetUserId) {
+                            localStorage.removeItem(key);
                         }
                     }
-                    // Save new hash first, then clean up old ones
-                    if (userId && newHash) {
-                        localStorage.setItem(`vr_hash_${newHash}`, userId);
-                    }
-                    staleKeys.forEach(key => {
-                        if (key !== `vr_hash_${newHash}`) localStorage.removeItem(key);
-                    });
+                    localStorage.setItem(`vr_hash_${newHash}`, targetUserId);
                 }
 
                 setStatus('success');
