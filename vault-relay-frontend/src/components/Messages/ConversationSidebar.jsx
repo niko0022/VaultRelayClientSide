@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ConversationListItem from './ConversationListItem';
 import { resolveConversationName } from '../../utils/conversationUtils';
 import { useChatLock } from '../../hooks/useChatLock';
@@ -26,6 +26,11 @@ export default function ConversationSidebar({
     const [passcodeMode, setPasscodeMode] = useState('verify');
     const [isLockedSectionExpanded, setIsLockedSectionExpanded] = useState(false);
     const [passcodeError, setPasscodeError] = useState('');
+
+    // Keep sidebar expansion in sync with folder lock state
+    useEffect(() => {
+        if (!isFolderUnlocked) setIsLockedSectionExpanded(false);
+    }, [isFolderUnlocked]);
 
     const filteredConversations = conversations.filter(conv => {
         const displayName = resolveConversationName(conv, user?.id) || (conv.type === 'GROUP' ? 'Group Chat' : 'Unknown User');
