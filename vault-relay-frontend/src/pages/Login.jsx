@@ -36,10 +36,10 @@ export default function Login() {
             <div className="absolute bottom-[-10%] right-[-10%] w-[55%] h-[55%] bg-[#E8E8FF] rounded-full blur-[130px] opacity-75"></div>
             <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-[#FDF0EB] rounded-full blur-[110px] opacity-80"></div>
 
-            {/* Back to Home Link (Subtle Logo/Badge in top left) */}
-            <div className="absolute top-6 left-6 z-20">
+            {/* Back to Home Link (Centered Logo/Badge at top) */}
+            <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20">
                 <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-                    <div className="w-8 h-8 rounded-lg bg-black flex items-center justify-center shadow-md">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center shadow-md">
                         <span className="material-symbols-outlined text-white text-base" style={{ fontVariationSettings: "'FILL' 1" }}>hexagon</span>
                     </div>
                     <span className="font-bold text-gray-900 text-sm tracking-tight">VaultRelay</span>
