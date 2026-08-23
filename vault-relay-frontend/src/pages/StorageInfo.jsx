@@ -79,45 +79,23 @@ export default function StorageInfo() {
 
                     {/* Page Header */}
                     <div className="mb-4">
-                        <h1 className="text-3xl lg:text-4xl font-bold text-gray-900">Core Vaults</h1>
+                        <h1 className="text-3xl lg:text-4xl font-bold text-gray-900">Browser database</h1>
                     </div>
 
                     {/* Bento Grid */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-                        {/* Left Pane: Total Capacity & Alpha Sentinel Vault */}
-                        <div className="lg:col-span-2 space-y-6 flex flex-col justify-between">
-
-                            {/* Total Capacity Card */}
-                            <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm space-y-3.5">
-                                <div className="flex justify-between items-center text-sm font-semibold text-gray-800">
-                                    <span>Total Capacity:</span>
-                                    <span className="font-mono text-gray-500">
-                                        {prettyBytes(storageStats.usage)} / {prettyBytes(storageStats.quota)}
-                                    </span>
-                                </div>
-                                <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
-                                    <div
-                                        className="h-full bg-black rounded-full transition-all duration-500"
-                                        style={{ width: `${Math.max(percentage, 0.5)}%` }}
-                                    ></div>
-                                </div>
-                            </div>
-
-                            {/* Alpha Sentinel Vault Card */}
-                            <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm flex flex-col justify-between flex-grow relative">
-                                <div className="flex justify-between items-center">
-                                    <h3 className="font-bold text-gray-950 text-lg">Alpha Sentinel Vault</h3>
-                                    <button className="text-gray-400 hover:text-gray-700 transition-colors p-1">
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" />
-                                        </svg>
-                                    </button>
+                        {/* Left Pane: IndexedDb Card */}
+                        <div className="lg:col-span-2 flex flex-col">
+                            {/* IndexedDb Card */}
+                            <div className="bg-white rounded-3xl p-6 lg:p-8 border border-gray-100 shadow-sm flex flex-col justify-between flex-grow">
+                                <div>
+                                    <h3 className="font-bold text-gray-950 text-lg">IndexedDb</h3>
                                 </div>
 
-                                <div className="flex flex-col md:flex-row items-center gap-8 py-4 my-auto">
-                                    {/* Circular Gauge */}
-                                    <div className="relative w-36 h-36 flex items-center justify-center shrink-0">
+                                <div className="flex flex-col sm:flex-row items-center justify-center gap-8 sm:gap-10 py-6 my-auto w-full">
+                                    {/* Capacity Gauge */}
+                                    <div className="relative w-40 h-40 flex items-center justify-center shrink-0">
                                         <svg className="w-full h-full transform -rotate-90" viewBox="0 0 120 120">
                                             <circle
                                                 cx="60"
@@ -142,40 +120,27 @@ export default function StorageInfo() {
                                             />
                                         </svg>
                                         <div className="absolute flex flex-col items-center justify-center">
-                                            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Capacity</span>
-                                            <span className="text-2xl font-bold text-gray-900">{percentage}%</span>
+                                            <span className="text-[11px] text-gray-400 font-bold uppercase tracking-wider">Capacity</span>
+                                            <span className="text-3xl font-bold text-gray-900">{percentage}%</span>
                                         </div>
                                     </div>
 
-                                    {/* Vault Status/Uptime Details */}
-                                    <div className="space-y-3">
-                                        <div>
-                                            <span className="text-xs text-gray-400 block font-semibold uppercase tracking-wider">Uptime</span>
-                                            <span className="text-xl font-bold text-gray-950">99.98%</span>
+                                    {/* Storage Breakdown Details */}
+                                    <div className="flex flex-col justify-center space-y-4 sm:border-l sm:border-gray-100 sm:pl-8">
+                                        <div className="space-y-1">
+                                            <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider block">Used Space</span>
+                                            <span className="text-2xl lg:text-3xl font-bold text-gray-950 tracking-tight block">
+                                                {prettyBytes(storageStats.usage)}
+                                            </span>
                                         </div>
-                                        <div>
-                                            <span className="text-xs text-gray-400 block font-semibold uppercase tracking-wider mb-1">Status</span>
-                                            <div className="inline-flex items-center gap-1.5 bg-[#EAF5F0] text-[#1D7A54] font-bold text-xs px-3 py-1 rounded-full">
-                                                <span className="w-1.5 h-1.5 bg-[#10B981] rounded-full"></span>
-                                                Active
-                                            </div>
+
+                                        <div className="space-y-1">
+                                            <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider block">Free Storage</span>
+                                            <span className="text-2xl lg:text-3xl font-bold text-gray-950 tracking-tight block">
+                                                {prettyBytes(Math.max(0, storageStats.quota - storageStats.usage))}
+                                            </span>
                                         </div>
                                     </div>
-                                </div>
-
-                                {/* Action Buttons */}
-                                <div className="flex items-center gap-3 pt-2">
-                                    <button className="px-5 py-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-xs font-semibold rounded-full text-gray-700 shadow-sm transition-colors cursor-pointer">
-                                        Additions
-                                    </button>
-                                    <button className="px-5 py-2.5 bg-black hover:bg-gray-900 text-xs font-semibold rounded-full text-white shadow-sm transition-colors cursor-pointer">
-                                        Action
-                                    </button>
-                                    <button className="w-9 h-9 bg-black hover:bg-gray-900 text-white rounded-full flex items-center justify-center transition-colors cursor-pointer shrink-0">
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" />
-                                        </svg>
-                                    </button>
                                 </div>
                             </div>
                         </div>
