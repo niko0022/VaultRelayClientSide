@@ -151,7 +151,7 @@ export default function Messages() {
 
                                         <div className="flex justify-center my-4">
                                             <div className="bg-gray-50 px-4 py-1.5 rounded-full text-[10px] uppercase tracking-[0.2em] text-gray-400 font-semibold border border-gray-100 shadow-sm">
-                                                Communication Tunnel Established
+                                                {activeConv?.type === 'GROUP' ? 'Group Conversation' : 'Direct Conversation'}
                                             </div>
                                         </div>
 
