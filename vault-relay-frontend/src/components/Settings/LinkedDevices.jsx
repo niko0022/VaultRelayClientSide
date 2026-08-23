@@ -263,7 +263,7 @@ export default function LinkedDevices() {
                     <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h.01M16 12h.01M8 12h.01M12 16h.01M16 16h.01M8 16h.01" />
                     </svg>
-                    Linked Devices & E2EE Identity
+                    Linked Devices
                 </h2>
                 <div className="flex gap-2">
                     {currentDeviceId && (
@@ -451,8 +451,8 @@ export default function LinkedDevices() {
                 }}
                 onConfirm={confirmUnlink}
                 title={targetUnlinkId === currentDeviceId ? "Sign Out" : "Unlink Device"}
-                message={targetUnlinkId === currentDeviceId 
-                    ? "Are you sure you want to sign out and unlink this device? Your local cryptographic cache will be wiped." 
+                message={targetUnlinkId === currentDeviceId
+                    ? "Are you sure you want to sign out and unlink this device? Your local cryptographic cache will be wiped."
                     : `Are you sure you want to unlink Device ${targetUnlinkId}?`}
                 confirmText={targetUnlinkId === currentDeviceId ? "Sign Out" : "Unlink"}
             />
