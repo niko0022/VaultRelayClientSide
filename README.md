@@ -6,6 +6,37 @@ This monorepo contains the **React frontend** and the **Rust → WebAssembly bri
 
 > **Status:** In active development. Most functionality works, only a few edge cases and polish are missing.
 
+---
+
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/Direct_Chat_Page.png" alt="Direct Chat Interface" width="850" style="border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);" />
+</p>
+
+<details open>
+  <summary><b>Click to view all pages & components</b></summary>
+  <br/>
+
+  | Direct Chat | Contacts & Requests |
+  | :---: | :---: |
+  | <img src="docs/screenshots/Direct_Chat_Page.png" width="450" /> | <img src="docs/screenshots/Contacts_Page.png" width="450" /> |
+
+  | Landing Page | Browser Database (IndexedDB) |
+  | :---: | :---: |
+  | <img src="docs/screenshots/Home_Page.png" width="450" /> | <img src="docs/screenshots/Storage_Detail_Page.png" width="450" /> |
+
+  | Profile & Linked Devices | Login Page |
+  | :---: | :---: |
+  | <img src="docs/screenshots/Profile_Page.png" width="450" /> | <img src="docs/screenshots/Login_Page.png" width="450" /> |
+
+  | Registration Page | Account Verification |
+  | :---: | :---: |
+  | <img src="docs/screenshots/Register_Page.png" width="450" /> | <img src="docs/screenshots/Verify_Account_Page.png" width="450" /> |
+
+</details>
+
+---
 
 ## Architecture Overview
 
@@ -71,6 +102,8 @@ A local fork of Signal's official [`libsignal`](https://github.com/nicoulaj/libs
 
 ```
 VaultRelayClientSide/
+├── docs/                                    # Soon to come: Documentation and UI screenshots
+│   └── screenshots/
 ├── libsignal/                               # Signal Protocol Rust library (submodule)
 │   └── rust/
 │       ├── protocol/                        # Core protocol implementation
