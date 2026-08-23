@@ -135,12 +135,6 @@ export default function MessageBubble({ msg, isMe, isEditing, handleContextMenu,
                     {msg.editedAt && !isDeleted && (
                         <span className="text-[10px] text-gray-400 italic">edited</span>
                     )}
-                    {(msg.contentType === 'SIGNAL_ENCRYPTED' || msg.isDecrypted) && (
-                        <span className="text-[10px] text-emerald-500 uppercase font-bold tracking-wider flex items-center gap-0.5">
-                            <span className="material-symbols-outlined text-[10px]">lock</span>
-                            Secure
-                        </span>
-                    )}
                     {msg.isPending && (
                         <span className="material-symbols-outlined text-[12px] text-gray-300 animate-pulse">schedule</span>
                     )}
